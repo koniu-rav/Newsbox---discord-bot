@@ -1,6 +1,9 @@
 """Main Newsbox Discord Bot implementation with multi-channel dispatch."""
 
+from __future__ import annotations
+
 import asyncio
+from typing import Optional
 import discord
 from discord.ext import commands
 
@@ -75,7 +78,7 @@ class NewsboxBot(commands.Bot):
             if channel:
                 await briefings_cog.compile_and_send_calendar_briefing(channel)
 
-    async def _resolve_channel(self, channel_id: int) -> discord.abc.Messageable | None:
+    async def _resolve_channel(self, channel_id: int) -> Optional[discord.abc.Messageable]:
         """Fetch or get channel by ID."""
         channel = self.get_channel(channel_id)
         if channel is None:

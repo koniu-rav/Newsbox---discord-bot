@@ -1,5 +1,7 @@
 """Market data service for fetching quotes for configurable macro assets (DXY, EUR/USD, DAX, BTC, and more)."""
 
+from __future__ import annotations
+
 import asyncio
 from typing import Any, Dict, Optional
 from newsbox.config import get_settings

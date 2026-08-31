@@ -3,7 +3,7 @@
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 # Default assets mapping
 DEFAULT_TICKERS_STR = "DXY=DX-Y.NYB,EUR/USD=EURUSD=X,DAX=^GDAXI,BTC=BTC-USD"
@@ -26,7 +26,7 @@ def parse_tickers(tickers_raw: str) -> Dict[str, str]:
 
 try:
     from pydantic_settings import BaseSettings, SettingsConfigDict
-    from pydantic import Field
+    from pydantic import Field, field_validator
 
     class Settings(BaseSettings):
         """Application settings loaded from environment or .env file."""
@@ -44,6 +44,23 @@ try:
 
         # Backward compatibility alias
         discord_briefing_channel_id: Optional[int] = Field(default=None, alias="DISCORD_BRIEFING_CHANNEL_ID")
+
+        @field_validator(
+            "discord_guild_id",
+            "discord_macro_channel_id",
+            "discord_calendar_channel_id",
+            "discord_news_pl_channel_id",
+            "discord_news_global_channel_id",
+            "discord_briefing_channel_id",
+            mode="before",
+        )
+        @classmethod
+        def empty_str_to_none(cls, v: Any) -> Optional[int]:
+            if v == "" or v is None:
+                return None
+            if isinstance(v, str) and v.strip().isdigit():
+                return int(v.strip())
+            return v
 
         # Google Gemini AI Configuration
         gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")

@@ -1,5 +1,4 @@
-"""Channels Cog - manages multi-channel routing for briefings, calendar, and regional news."""
-
+from typing import Optional
 import discord
 from discord.ext import commands
 from newsbox.config import get_settings
@@ -21,7 +20,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
         self,
         ctx: commands.Context,
         channel_type: str,
-        channel: discord.TextChannel | None = None,
+        channel: Optional[discord.TextChannel] = None,
     ) -> None:
         """Przypisz dany kanał Discord do wybranego typu powiadomień.
 
@@ -70,7 +69,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             color=0x3498DB,
         )
 
-        def ch_mention(ch_id: int | None) -> str:
+        def ch_mention(ch_id: Optional[int]) -> str:
             return f"<#{ch_id}>" if ch_id else "*Brak (nieustawiony)*"
 
         embed.add_field(

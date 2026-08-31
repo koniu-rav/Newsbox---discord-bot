@@ -1,5 +1,7 @@
 """Multi-region business and macro news aggregator (Poland/Parkiet, EU, USA, World)."""
 
+from __future__ import annotations
+
 import asyncio
 from typing import Any, Dict, List, Optional
 import aiohttp

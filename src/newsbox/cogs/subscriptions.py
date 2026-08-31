@@ -1,5 +1,4 @@
-"""Subscriptions Cog - manages server briefing channel assignments."""
-
+from typing import Optional
 import discord
 from discord.ext import commands
 from newsbox.config import get_settings
@@ -20,7 +19,7 @@ class SubscriptionsCog(commands.Cog, name="Subscriptions"):
     async def set_briefing_channel(
         self,
         ctx: commands.Context,
-        channel: discord.TextChannel | None = None,
+        channel: Optional[discord.TextChannel] = None,
     ) -> None:
         """Set the target text channel for scheduled 8:00 AM daily briefings."""
         target_channel = channel or ctx.channel
