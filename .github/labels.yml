@@ -1,0 +1,67 @@
+# GitHub Repository Label Definitions
+# Use with GitHub CLI (`gh label create / clone`) or automated label sync actions.
+
+# Issue Types
+- name: "type: user-story"
+  color: "0052cc"
+  description: "User-facing feature, enhancement, or capability with acceptance criteria"
+
+- name: "type: bug"
+  color: "d73a4a"
+  description: "Something isn't working as expected or causing errors"
+
+- name: "type: tech-story"
+  color: "5319e7"
+  description: "Internal technical task, refactoring, infra, or architectural improvements"
+
+- name: "type: documentation"
+  color: "0075ca"
+  description: "Improvements or additions to documentation"
+
+# Priorities
+- name: "priority: high"
+  color: "b60205"
+  description: "Urgent issue requiring immediate attention"
+
+- name: "priority: medium"
+  color: "fbca04"
+  description: "Normal priority task scheduled in current milestone"
+
+- name: "priority: low"
+  color: "0e8a16"
+  description: "Low priority or nice-to-have improvement"
+
+# Components & Domains
+- name: "component: discord-bot"
+  color: "7289da"
+  description: "Discord.py cogs, commands, and interaction handlers"
+
+- name: "component: gemini-ai"
+  color: "4285f4"
+  description: "Google Gemini API prompt engineering and summarization"
+
+- name: "component: market-data"
+  color: "1d76db"
+  description: "Financial feeds for DXY, EUR/USD, DAX, and BTC"
+
+- name: "component: economic-calendar"
+  color: "0e8a16"
+  description: "Macroeconomic event fetcher and calendar sync"
+
+- name: "component: scheduler"
+  color: "d4c5f9"
+  description: "Daily 8:00 AM briefing scheduling and cron dispatch"
+
+# Workflow Status
+- name: "status: blocked"
+  color: "e11d21"
+  description: "Blocked by external dependencies or prerequisite issues"
+
+- name: "status: in-progress"
+  color: "e99695"
+  description: "Currently actively being worked on"
+
+- name: "status: review-needed"
+  color: "c2e0c6"
+  description: "Ready for code review or testing verification"
+

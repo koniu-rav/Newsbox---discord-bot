@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "newsbox"
+version = "0.1.0"
+description = "Automated Discord bot delivering daily macro briefings, economic calendar insights, and AI-powered market sentiment."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Newsbox Contributors" }
+]
+dependencies = [
+    "discord.py>=2.3.2",
+    "google-genai>=0.1.1",
+    "pydantic-settings>=2.2.0",
+    "aiohttp>=3.9.3",
+    "apscheduler>=3.10.4",
+    "python-dotenv>=1.0.1",
+    "feedparser>=6.0.11",
+    "beautifulsoup4>=4.12.3",
+    "yfinance>=0.2.38"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.1.1",
+    "pytest-asyncio>=0.23.6",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.3.4",
+    "mypy>=1.9.0",
+    "types-aiofiles>=23.2.0.20240403"
+]
+
+[project.scripts]
+newsbox = "newsbox.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+

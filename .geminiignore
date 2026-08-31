@@ -1,0 +1,89 @@
+# Antigravity / Gemini Context Ignore Configuration
+# Used to minimize context window size and optimize token consumption
+
+# Python Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-code and cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Package builds & distribution
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+develop-eggs/
+downloads/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+
+# Logs and databases
+*.log
+logs/
+*.sqlite
+*.sqlite3
+*.db
+*.rdb
+
+# Temporary and local data files
+data/
+temp/
+tmp/
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and OS files
+.DS_Store
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.directory
+
+# Lockfiles and large generated files (save tokens, rely on pyproject.toml / requirements.txt)
+poetry.lock
+Pipfile.lock
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Large media & docs builds
+docs/_build/
+site/
+*.pdf
+*.mp4
+*.mp3
+*.wav
+*.zip
+*.tar.gz
+*.tar
+

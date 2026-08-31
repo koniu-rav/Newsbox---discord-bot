@@ -1,0 +1,18 @@
+You are an economic calendar analyst and risk officer.
+Review the following scheduled economic announcements for today:
+
+### TODAY'S SCHEDULED EVENTS:
+{calendar_events_str}
+
+### INSTRUCTIONS:
+Produce a concise morning briefing on economic calendar risks:
+1. ⚠️ **KRYTYCZNE OKNA CZASOWE (HIGH IMPACT)**
+   - Highlight exact hours when major volatility spikes are expected (e.g. CPI, NFP, Fed/ECB decisions).
+   - Expected market sensitivity (FX, Indices, Crypto).
+2. 💡 **ZALECENIA DLA TRADERA NA DANY DZIEŃ**
+   - When to flatten intraday positions or widen stop losses.
+   - Scenario analysis: How to interpret deviations from consensus.
+
+Keep it under 150 words.
+Language: Polish.
+

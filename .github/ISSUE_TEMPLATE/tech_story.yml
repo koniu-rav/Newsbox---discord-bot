@@ -1,0 +1,45 @@
+name: "Tech Story"
+description: "Technical debt, refactoring, infrastructure, testing, or architectural improvements"
+title: "[Tech]: "
+labels: ["type: tech-story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Tech Story Specification
+        Use this template for internal technical initiatives, architectural refactors, infrastructure upgrades, performance optimizations, and dev tooling.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Context, motivation, and problem statement explaining why this technical work is necessary.
+      placeholder: |
+        Refactor `market_service.py` to support parallel async querying with connection pooling and caching.
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_details
+    attributes:
+      label: Technical Details
+      description: Detailed architectural specifications, interfaces, schema changes, libraries, or migration steps.
+      placeholder: |
+        - Replace serial requests with `asyncio.gather()` using a shared `aiohttp.ClientSession`.
+        - Implement TTL in-memory cache (5 min) using `cachetools` or custom async decorator.
+        - Add unit test mocks in `tests/test_services.py`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Definition of Done / Acceptance Criteria
+      description: Checklist of verifiable outcomes to complete this story.
+      placeholder: |
+        - [ ] All external market calls are fully asynchronous and pooled.
+        - [ ] Service latency reduced under 500ms.
+        - [ ] 100% test coverage on `market_service.py`.
+    validations:
+      required: false
+

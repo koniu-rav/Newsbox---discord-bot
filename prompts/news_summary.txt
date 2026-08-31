@@ -1,0 +1,15 @@
+You are a senior financial journalist and market intelligence analyst.
+Review the following breaking and pre-market headlines from Poland, Europe, USA, and Global markets:
+
+### REGIONAL HEADLINES:
+{news_headlines_str}
+
+### INSTRUCTIONS:
+Summarize the most critical news flow into 3-4 bullet points highlighting:
+1. 🇵🇱 **Polska / GPW**: Key corporate results, macro policy, or banking/energy headlines.
+2. 🇺🇸 / 🇪🇺 **USA i Europa**: Earnings, tech, monetary policy, and index movements.
+3. 🌐 **Global / Surowce / Krypto**: Geopolitics, oil, dollar, and crypto market dynamics.
+
+Focus strictly on news with direct market-moving impact.
+Language: Polish.
+

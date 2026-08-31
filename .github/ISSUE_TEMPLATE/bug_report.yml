@@ -1,0 +1,62 @@
+name: "Bug Report"
+description: "Report a reproducible bug, defect, or unexpected behavior"
+title: "[Bug]: "
+labels: ["type: bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Bug Report
+        Thank you for reporting a bug. Please provide clear steps and context so it can be reproduced and resolved quickly.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "Briefing fails to dispatch at 8:00 AM when news API returns 429 rate limit error..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction_steps
+    attributes:
+      label: How to Reproduce
+      description: Step-by-step instructions to reproduce the behavior.
+      placeholder: |
+        1. Start the bot with standard credentials in `.env`.
+        2. Trigger command `/briefing force` or wait for scheduled 8:00 AM job.
+        3. Simulate rate-limited API response.
+        4. See error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_result
+    attributes:
+      label: Current Result
+      description: What currently happens when following the reproduction steps.
+      placeholder: "The bot throws an unhandled `aiohttp.ClientResponseError` and crashes the scheduler task."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_result
+    attributes:
+      label: Expected Result
+      description: What should have happened instead.
+      placeholder: "The bot retries with exponential backoff and delivers a partial briefing if the news service remains unavailable."
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Logs / Screenshots / Environment (Optional)
+      description: Paste any error stack traces, logs, or relevant environment details (OS, Python version).
+      placeholder: |
+        - Python version: 3.11.8
+        - Error trace: ...
+    validations:
+      required: false
+

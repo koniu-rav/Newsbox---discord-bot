@@ -1,0 +1,2 @@
+"""Newsbox test suite."""
+

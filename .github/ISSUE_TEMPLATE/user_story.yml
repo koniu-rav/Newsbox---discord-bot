@@ -1,0 +1,58 @@
+name: "User Story"
+description: "Propose a user-facing feature or enhancement"
+title: "[Story]: "
+labels: ["type: user-story"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### User Story Specification
+        Please fill in the user story details, acceptance criteria, and optional technical or design notes.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the user story following standard user story format.
+      placeholder: |
+        **As a** [type of user]
+        **I want to** [perform an action / receive information]
+        **So that** [benefit / value achieved]
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Detailed conditions that must be met for this story to be considered complete.
+      placeholder: |
+        - [ ] AC 1: Bot sends daily briefing at configured time (default 8:00 AM).
+        - [ ] AC 2: Briefing includes DXY, EUR/USD, DAX, and BTC sentiment.
+        - [ ] AC 3: Handles API timeout gracefully with fallback notification.
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_details
+    attributes:
+      label: Technical Details (if needed)
+      description: Optional architecture notes, API endpoints, schema changes, or background jobs.
+      placeholder: |
+        - Uses `services/gemini_service.py` to prompt Gemini 1.5 Flash.
+        - Discord Cog: `src/newsbox/cogs/briefings.py`.
+    validations:
+      required: false
+
+  - type: textarea
+    id: design
+    attributes:
+      label: Design & UI / Embed Mockup (if needed)
+      description: Optional Discord Embed layout, color codes, field structures, or UI mockups.
+      placeholder: |
+        - Embed Color: `#3498db`
+        - Header: "🌅 Daily Macro Briefing — [Date]"
+        - Fields: [Market Sentiment], [Key Economic Events], [Macro Headlines]
+    validations:
+      required: false
+

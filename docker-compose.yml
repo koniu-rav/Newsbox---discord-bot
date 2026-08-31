@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  newsbox-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: newsbox-discord-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./logs:/app/logs
+
