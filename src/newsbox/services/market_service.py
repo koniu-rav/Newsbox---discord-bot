@@ -11,8 +11,14 @@ logger = setup_logger(__name__)
 
 
 def resolve_ticker(symbol: str) -> str:
-    """Normalize user input symbols like 'MCD.US', 'ORCL,US', 'ETH' into Yahoo Finance format."""
+    """Normalize user input symbols like 'MCD.US', 'SAP.DE', 'CDR.WA', 'ETH' into Yahoo Finance format."""
     s = symbol.strip().upper()
+    # Normalize common commas to dots
+    if ",DE" in s:
+        s = s.replace(",DE", ".DE")
+    if ",WA" in s:
+        s = s.replace(",WA", ".WA")
+
     for suffix in [".US", ",US"]:
         if s.endswith(suffix):
             return s[:-len(suffix)]

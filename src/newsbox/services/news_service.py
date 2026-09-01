@@ -25,6 +25,7 @@ REGIONAL_FEEDS = {
     "EU": [
         {"name": "Euronews Business", "url": "https://www.euronews.com/rss?format=mrss&level=theme&name=business"},
         {"name": "ECB Press", "url": "https://www.ecb.europa.eu/rss/press.html"},
+        {"name": "Investing.com Germany", "url": "https://de.investing.com/rss/news.rss"},
     ],
     "CRYPTO": [
         {"name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
@@ -37,8 +38,9 @@ REGIONAL_FEEDS = {
     ],
 }
 
-# Extended company name keywords for intelligent ticker matching
+# Extended company name keywords for intelligent ticker matching across US, PL, DE, and Crypto
 COMPANY_NAME_MAPPINGS: Dict[str, List[str]] = {
+    # US Equities
     "EPAM": ["EPAM"],
     "MCD": ["MCDONALD", "MCDONALDS", "MCD"],
     "ORCL": ["ORACLE", "ORCL"],
@@ -50,15 +52,30 @@ COMPANY_NAME_MAPPINGS: Dict[str, List[str]] = {
     "MSFT": ["MICROSOFT", "MSFT"],
     "GOOGL": ["ALPHABET", "GOOGLE", "GOOGL"],
     "AMZN": ["AMAZON", "AMZN"],
+    # Crypto
     "ETH-USD": ["ETHEREUM", "ETH", "ETHER"],
     "ETH": ["ETHEREUM", "ETH", "ETHER"],
     "BTC-USD": ["BITCOIN", "BTC"],
     "BTC": ["BITCOIN", "BTC"],
     "SOL-USD": ["SOLANA", "SOL"],
     "SOL": ["SOLANA", "SOL"],
+    # Polish GPW Equities
     "CDR.WA": ["CD PROJEKT", "CDR"],
     "PKN.WA": ["ORLEN", "PKN"],
     "PKO.WA": ["PKO BP", "PKO"],
+    "KGH.WA": ["KGHM", "KGH"],
+    "PZU.WA": ["PZU"],
+    "DNP.WA": ["DINOPOLSKA", "DINO", "DNP"],
+    "LPP.WA": ["LPP"],
+    # German DAX / XETRA Equities
+    "SAP.DE": ["SAP"],
+    "BMW.DE": ["BMW", "BAYERISCHE MOTOREN"],
+    "VOW3.DE": ["VOLKSWAGEN", "VOW3", "VW"],
+    "SIE.DE": ["SIEMENS", "SIE"],
+    "ALV.DE": ["ALLIANZ", "ALV"],
+    "MBG.DE": ["MERCEDES", "MBG", "DAIMLER"],
+    "DTE.DE": ["DEUTSCHE TELEKOM", "DTE"],
+    "AIR.DE": ["AIRBUS", "AIR"],
 }
 
 
@@ -94,6 +111,7 @@ class NewsService:
         # 1. Determine relevant market regions based on user's active holdings
         relevant_regions = set()
         has_polish_stocks = False
+        has_german_stocks = False
         has_crypto = False
         has_us_stocks = False
 
@@ -102,6 +120,10 @@ class NewsService:
             if s_clean.endswith(".WA") or s_clean in ["WIG20", "MWIG40", "SWIG80"]:
                 has_polish_stocks = True
                 relevant_regions.add("PL")
+            elif s_clean.endswith(".DE") or s_clean.endswith(".F") or s_clean.startswith("^GDAX"):
+                has_german_stocks = True
+                relevant_regions.add("EU")
+                relevant_regions.add("GLOBAL")
             elif s_clean in ["ETH", "ETH-USD", "BTC", "BTC-USD", "SOL", "SOL-USD"] or s_clean.endswith("-USD"):
                 has_crypto = True
                 relevant_regions.add("CRYPTO")
@@ -130,7 +152,10 @@ class NewsService:
 
             for s in target_symbols:
                 s_clean = s.strip().upper()
-                keywords = COMPANY_NAME_MAPPINGS.get(s_clean, [s_clean.replace(".WA", "").replace("^", "")])
+                keywords = COMPANY_NAME_MAPPINGS.get(
+                    s_clean,
+                    [s_clean.replace(".WA", "").replace(".DE", "").replace("^", "")]
+                )
                 if any(kw in full_text for kw in keywords if len(kw) >= 2):
                     item_copy = dict(item)
                     item_copy["matched_symbol"] = s_clean
@@ -141,6 +166,7 @@ class NewsService:
             matched_news = self._get_tailored_portfolio_fallback(
                 target_symbols,
                 has_polish_stocks=has_polish_stocks,
+                has_german_stocks=has_german_stocks,
                 has_crypto=has_crypto,
                 has_us_stocks=has_us_stocks,
             )
@@ -151,6 +177,7 @@ class NewsService:
         self,
         symbols: List[str],
         has_polish_stocks: bool,
+        has_german_stocks: bool,
         has_crypto: bool,
         has_us_stocks: bool,
     ) -> List[Dict[str, Any]]:
@@ -158,7 +185,10 @@ class NewsService:
         results: List[Dict[str, Any]] = []
 
         if has_us_stocks:
-            us_syms = [s for s in symbols if not s.endswith(".WA") and not s.endswith("-USD") and s not in ["ETH", "BTC", "SOL"]]
+            us_syms = [
+                s for s in symbols
+                if not s.endswith(".WA") and not s.endswith(".DE") and not s.endswith("-USD") and s not in ["ETH", "BTC", "SOL"]
+            ]
             sym_str = ", ".join(us_syms[:3]) if us_syms else "US Equities"
             results.append({
                 "title": f"Wall Street: Spółki z Twojego portfela ({sym_str}) pod lupą analityków przed kolejnym kwartałem",
@@ -175,9 +205,20 @@ class NewsService:
                 "matched_symbol": us_syms[1] if len(us_syms) > 1 else (us_syms[0] if us_syms else "USA"),
             })
 
+        if has_german_stocks:
+            de_syms = [s for s in symbols if s.endswith(".DE")]
+            de_str = ", ".join(de_syms[:2])
+            results.append({
+                "title": f"Giełda we Frankfurcie (DAX/XETRA): Raporty finansowe i perspektywy dla {de_str}",
+                "url": "https://www.euronews.com",
+                "source": "Euronews / DAX",
+                "region": "EU",
+                "matched_symbol": de_syms[0] if de_syms else "DAX",
+            })
+
         if has_crypto:
             results.append({
-                "title": "Ethereum: Wzrost wolumenów on-chain i stabilne napływy do funduszy ETF wspierają wycenę",
+                "title": "Krypto / Digital Assets: Wzrost wolumenów on-chain i stabilne napływy do funduszy ETF wspierają wyceny",
                 "url": "https://www.coindesk.com",
                 "source": "CoinDesk",
                 "region": "CRYPTO",
