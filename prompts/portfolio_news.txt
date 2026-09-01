@@ -14,3 +14,4 @@ Summarize the most important information for the portfolio:
 
 Keep it structured, clear, and actionable. Max 180 words.
 Language: Polish.
+

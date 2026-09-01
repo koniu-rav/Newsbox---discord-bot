@@ -1,8 +1,20 @@
-"""Discord Embed message builders for trader briefings, single-asset views, portfolio tracking, and crypto feeds."""
+"""Discord Embed message builders with strict character limits for Discord API safety."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 import discord
+
+MAX_FIELD_LENGTH = 1000
+MAX_DESCRIPTION_LENGTH = 4000
+
+
+def truncate(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
+    """Safely truncate text to avoid Discord 1024 field / 4096 description limit."""
+    if not text:
+        return ""
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - 3] + "..."
 
 
 def create_trader_advisory_embed(
@@ -13,7 +25,7 @@ def create_trader_advisory_embed(
     """Build the primary 8:00 AM Trader Advisory embed (FX Majors, DXY, DAX)."""
     embed = discord.Embed(
         title=f"🌅 Raport Makro & FX/DAX Advisory — {date_str}",
-        description=advisory_text,
+        description=truncate(advisory_text, MAX_DESCRIPTION_LENGTH),
         color=0x1F8B4C,  # Emerald Green
         timestamp=datetime.utcnow(),
     )
@@ -28,7 +40,7 @@ def create_trader_advisory_embed(
     if market_lines:
         embed.add_field(
             name="📊 Notowania (FX Majors | DXY | DAX | BTC)",
-            value="\n".join(market_lines),
+            value=truncate("\n".join(market_lines), MAX_FIELD_LENGTH),
             inline=False,
         )
 
@@ -52,7 +64,7 @@ def create_single_asset_embed(
 
     embed = discord.Embed(
         title=f"🎯 Raport dla Waloru: {symbol.upper()}",
-        description=advisory_text,
+        description=truncate(advisory_text, MAX_DESCRIPTION_LENGTH),
         color=color,
         timestamp=datetime.utcnow(),
     )
@@ -81,7 +93,7 @@ def create_portfolio_embed(
     """Build user investment portfolio overview embed."""
     embed = discord.Embed(
         title="💼 Twój Portfel Inwestycyjny & Wiadomości Spółek",
-        description=advisory_text,
+        description=truncate(advisory_text, MAX_DESCRIPTION_LENGTH),
         color=0x9B59B6,  # Amethyst Purple
         timestamp=datetime.utcnow(),
     )
@@ -97,14 +109,14 @@ def create_portfolio_embed(
     if quote_lines:
         embed.add_field(
             name="📊 Notowania Twoich Spółek",
-            value="\n".join(quote_lines),
+            value=truncate("\n".join(quote_lines), MAX_FIELD_LENGTH),
             inline=False,
         )
 
     # Headlines
     news_lines = []
     for h in portfolio_news[:5]:
-        title = h.get("title", "")
+        title = truncate(h.get("title", ""), 120)
         url = h.get("url", "")
         source = h.get("source", "News")
         match = h.get("matched_symbol", "")
@@ -117,7 +129,7 @@ def create_portfolio_embed(
     if news_lines:
         embed.add_field(
             name="📰 Ostatnie Komunikaty dla Twoich Spółek",
-            value="\n".join(news_lines),
+            value=truncate("\n".join(news_lines), MAX_FIELD_LENGTH),
             inline=False,
         )
 
@@ -132,16 +144,14 @@ def create_crypto_news_embed(
     """Build dedicated Crypto / Blockchain news embed."""
     embed = discord.Embed(
         title="⚡ Crypto & Blockchain Pulse (#crypto-chat)",
+        description=truncate(summary_text or "", MAX_DESCRIPTION_LENGTH) if summary_text else None,
         color=0xF39C12,  # Bitcoin Gold / Orange
         timestamp=datetime.utcnow(),
     )
 
-    if summary_text:
-        embed.description = summary_text
-
     items_text = []
-    for h in headlines[:6]:
-        item_title = h.get("title", "")
+    for h in headlines[:5]:
+        item_title = truncate(h.get("title", ""), 120)
         url = h.get("url", "")
         source = h.get("source", "Crypto")
         if url:
@@ -152,7 +162,7 @@ def create_crypto_news_embed(
     if items_text:
         embed.add_field(
             name="🪙 Najnowsze Wydarzenia Krypto",
-            value="\n".join(items_text),
+            value=truncate("\n".join(items_text), MAX_FIELD_LENGTH),
             inline=False,
         )
 
@@ -176,20 +186,20 @@ def create_calendar_embed(
     for event in calendar_events[:8]:
         time = event.get("time", "")
         currency = event.get("currency", "")
-        title = event.get("title", "")
+        title = truncate(event.get("title", ""), 80)
         impact = event.get("impact", "🟡")
         event_lines.append(f"{impact} `{time}` **[{currency}]** {title}")
 
     embed.add_field(
         name="⏰ Zaplanowane Publikacje Dnia",
-        value="\n".join(event_lines) if event_lines else "Brak kluczowych wydarzeń o wysokiej zmienności.",
+        value=truncate("\n".join(event_lines), MAX_FIELD_LENGTH) if event_lines else "Brak kluczowych wydarzeń.",
         inline=False,
     )
 
     if calendar_advice:
         embed.add_field(
             name="💡 Zalecenia AI dla Tradera",
-            value=calendar_advice,
+            value=truncate(calendar_advice, MAX_FIELD_LENGTH),
             inline=False,
         )
 
@@ -215,16 +225,14 @@ def create_regional_news_embed(
 
     embed = discord.Embed(
         title=title,
+        description=truncate(summary_text or "", MAX_DESCRIPTION_LENGTH) if summary_text else None,
         color=0x3498DB,  # Blue
         timestamp=datetime.utcnow(),
     )
 
-    if summary_text:
-        embed.description = summary_text
-
     items_text = []
-    for h in headlines[:6]:
-        item_title = h.get("title", "")
+    for h in headlines[:5]:
+        item_title = truncate(h.get("title", ""), 120)
         url = h.get("url", "")
         source = h.get("source", "News")
         reg = h.get("region", "")
@@ -237,7 +245,7 @@ def create_regional_news_embed(
     if items_text:
         embed.add_field(
             name="🔥 Najważniejsze Nagłówki",
-            value="\n".join(items_text),
+            value=truncate("\n".join(items_text), MAX_FIELD_LENGTH),
             inline=False,
         )
 
@@ -248,8 +256,8 @@ def create_regional_news_embed(
 def create_error_embed(title: str, description: str) -> discord.Embed:
     """Build standardized error notification embed."""
     embed = discord.Embed(
-        title=f"⚠️ {title}",
-        description=description,
+        title=f"⚠️ {truncate(title, 200)}",
+        description=truncate(description, MAX_DESCRIPTION_LENGTH),
         color=0xE74C3C,  # Red
         timestamp=datetime.utcnow(),
     )

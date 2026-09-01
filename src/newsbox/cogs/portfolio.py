@@ -102,3 +102,4 @@ class PortfolioCog(commands.Cog, name="Portfolio Tracker"):
 async def setup(bot: commands.Bot) -> None:
     """Extension cog setup."""
     await bot.add_cog(PortfolioCog(bot))
+

@@ -89,6 +89,18 @@ class NewsboxBot(commands.Bot):
                 return None
         return channel
 
+    async def on_command_error(self, ctx: commands.Context, error: Exception) -> None:
+        """Global error handler for bot commands."""
+        logger.error("Command '%s' error: %s", ctx.command, error, exc_info=True)
+        from newsbox.utils.embeds import create_error_embed
+        err_msg = str(error)
+        if hasattr(error, "original"):
+            err_msg = str(error.original)
+        try:
+            await ctx.send(embed=create_error_embed("Błąd wykonania komendy", err_msg))
+        except Exception:
+            pass
+
     async def close(self) -> None:
         """Gracefully shut down scheduler and bot connection."""
         self.scheduler.shutdown()

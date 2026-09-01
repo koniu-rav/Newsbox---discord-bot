@@ -38,3 +38,4 @@ def test_is_in_quiet_window():
     # Time outside market open (11:30)
     outside_open = datetime(2026, 9, 1, 11, 30, 0)
     assert service.is_in_quiet_window(outside_open) is False
+

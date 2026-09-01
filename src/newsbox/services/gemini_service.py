@@ -245,8 +245,18 @@ class GeminiService:
                 model=self.model_name,
                 contents=prompt,
             )
-            if response and hasattr(response, "text") and response.text:
-                return response.text.strip()
+            if response:
+                if hasattr(response, "text") and response.text:
+                    return response.text.strip()
+                if hasattr(response, "candidates") and response.candidates:
+                    parts_text = []
+                    for c in response.candidates:
+                        if hasattr(c, "content") and hasattr(c.content, "parts") and c.content.parts:
+                            for p in c.content.parts:
+                                if hasattr(p, "text") and p.text:
+                                    parts_text.append(p.text)
+                    if parts_text:
+                        return "".join(parts_text).strip()
             return fallback_msg
         except Exception as e:
             logger.error("Gemini API call failed: %s", e)
