@@ -65,6 +65,7 @@ try:
         discord_bot_token: str = Field(default="", alias="DISCORD_BOT_TOKEN")
         discord_guild_id: Optional[int] = Field(default=None, alias="DISCORD_GUILD_ID")
         discord_command_prefix: str = Field(default="!", alias="DISCORD_COMMAND_PREFIX")
+        vip_role_name: str = Field(default="Newsbox-vip", alias="VIP_ROLE_NAME")
 
         # Multi-Channel Routing
         discord_macro_channel_id: Optional[int] = Field(default=None, alias="DISCORD_MACRO_CHANNEL_ID")
@@ -162,6 +163,7 @@ except ImportError:
             guild_id = os.getenv("DISCORD_GUILD_ID")
             self.discord_guild_id: Optional[int] = int(guild_id) if guild_id and guild_id.isdigit() else None
             self.discord_command_prefix: str = os.getenv("DISCORD_COMMAND_PREFIX", "!")
+            self.vip_role_name: str = os.getenv("VIP_ROLE_NAME", "Newsbox-vip")
 
             # Channels
             macro_ch = os.getenv("DISCORD_MACRO_CHANNEL_ID") or os.getenv("DISCORD_BRIEFING_CHANNEL_ID")

@@ -1,4 +1,4 @@
-"""Main Discord bot client class for Newsbox."""
+"""Main Discord bot client class for Newsbox with VIP role and administrator authorization."""
 
 import asyncio
 from typing import Optional
@@ -30,6 +30,40 @@ class NewsboxBot(commands.Bot):
         )
 
         self.scheduler = SchedulerService()
+        # Register global permission check: Admin or VIP Role required
+        self.add_check(self.check_admin_or_vip)
+
+    async def check_admin_or_vip(self, ctx: commands.Context) -> bool:
+        """Global authorization check: allow only Administrators and users with the Newsbox-vip role."""
+        # 1. Allow application / bot owner
+        try:
+            if await self.is_owner(ctx.author):
+                return True
+        except Exception:
+            pass
+
+        # 2. In DMs: require server context
+        if not ctx.guild:
+            raise commands.CheckFailure("⛔ Komendy bota Newsbox można uruchamiać wyłącznie na serwerze Discord.")
+
+        # 3. Allow Server Owner
+        if ctx.guild.owner_id == ctx.author.id:
+            return True
+
+        # 4. Allow Discord Administrators
+        perms = getattr(ctx.author, "guild_permissions", None)
+        if perms and getattr(perms, "administrator", False):
+            return True
+
+        # 5. Allow users with the configured VIP role (e.g. 'Newsbox-vip')
+        vip_target = self.settings.vip_role_name.lower().strip()
+        user_roles = getattr(ctx.author, "roles", [])
+        if any(r.name.lower().strip() == vip_target for r in user_roles):
+            return True
+
+        raise commands.CheckFailure(
+            f"Dostęp do komend bota Newsbox mają wyłącznie Administratorzy oraz użytkownicy z rolą `{self.settings.vip_role_name}`."
+        )
 
     async def setup_hook(self) -> None:
         """Executed during bot startup to load cogs and start automated schedule."""
@@ -40,13 +74,13 @@ class NewsboxBot(commands.Bot):
             except Exception as e:
                 logger.error("Failed to load extension %s: %s", extension, e, exc_info=True)
 
-        # 1. Schedule 7:00 AM Economic Calendar
+        # 1. Schedule 7:00 AM Economic Calendar (Mon-Fri)
         self.scheduler.schedule_daily_calendar(self.dispatch_scheduled_calendar)
 
-        # 2. Schedule 8:00 AM Macro & FX/DAX Briefing
+        # 2. Schedule 8:00 AM Macro & FX/DAX Briefing (Mon-Fri)
         self.scheduler.schedule_daily_briefing(self.dispatch_scheduled_macro_briefing)
 
-        # 3. Schedule 12:30 PM Accuracy & Performance Evaluation
+        # 3. Schedule 12:30 PM Accuracy & Performance Evaluation (Mon-Fri)
         self.scheduler.schedule_daily_accuracy(self.dispatch_scheduled_accuracy)
 
         self.scheduler.start()
@@ -127,13 +161,22 @@ class NewsboxBot(commands.Bot):
 
     async def on_command_error(self, ctx: commands.Context, error: Exception) -> None:
         """Global error handler for bot commands."""
-        logger.error("Command '%s' error: %s", ctx.command, error, exc_info=True)
+        logger.warning("Command '%s' error for user %s: %s", ctx.command, ctx.author, error)
         from newsbox.utils.embeds import create_error_embed
-        err_msg = str(error)
-        if hasattr(error, "original"):
-            err_msg = str(error.original)
+
+        if isinstance(error, commands.CheckFailure):
+            err_title = "Brak Uprawnień"
+            err_msg = str(error)
+        elif isinstance(error, commands.CommandNotFound):
+            return
+        else:
+            err_title = "Błąd wykonania komendy"
+            err_msg = str(error)
+            if hasattr(error, "original"):
+                err_msg = str(error.original)
+
         try:
-            await ctx.send(embed=create_error_embed("Błąd wykonania komendy", err_msg))
+            await ctx.send(embed=create_error_embed(err_title, err_msg))
         except Exception:
             pass
 

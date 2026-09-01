@@ -42,28 +42,30 @@
 
 ---
 
-## 💬 Komendy Bota
+## 💬 Komendy Bota & Uprawnienia
 
-| Komenda | Uprawnienia | Opis |
+> 🔒 **Autoryzacja**: Dostęp do wywoływania wszystkich komend Newsbox mają wyłącznie **Administratorzy** oraz użytkownicy z rolą **`Newsbox-vip`**.
+
+| Komenda | Wymagana Rola | Opis |
 | :--- | :--- | :--- |
-| `!briefing` / `!poranek` | Wszyscy | Pełny poranny raport makro (FX Majors, DXY, DAX, plan sesji). |
-| `!briefing <walor>` | Wszyscy | Dedykowana analiza dla 1 wybranego waloru (np. `!briefing DAX`, `!briefing BTC`). |
-| `!accuracy` / `!skutecznosc` | Wszyscy | Raport skuteczności: globalny counter, punktacja briefu i wnioski AI. |
-| `!portfolio` / `!portfel` | Wszyscy | Wyświetla podgląd Twoich spółek, notowania i podsumowanie AI. |
-| `!portfolio add <symbol>` | Wszyscy | Dodaje spółkę do portfela (np. `!portfolio add CDR.WA`, `!portfolio add NVDA`). |
-| `!portfolio remove <symbol>`| Wszyscy | Usuwa spółkę z portfela (np. `!portfolio remove TSLA`). |
-| `!portfolio news` | Wszyscy | Wiadomości i komunikaty ESPI/EBI tylko dla spółek z portfela. |
-| `!calendar` / `!kalendarz` | Wszyscy | Kalendarz ekonomiczny dnia z oceną ryzyk AI. |
-| `!market` / `!notowania` | Wszyscy | Szybki podgląd cen śledzonych instrumentów bazowych. |
-| `!news pl` | Wszyscy | Newsy z Polski i parkietu GPW (Parkiet, Bankier). |
-| `!news us` / `!news usa` | Wszyscy | Wiadomości z USA i Wall Street (CNBC, MarketWatch). |
-| `!news crypto` / `!crypto` | Wszyscy | Najświeższe wiadomości ze świata kryptowalut i Web3. |
-| `!news global` | Wszyscy | Rynki globalne, surowce i makro (Reuters, Euronews). |
+| `!briefing` / `!poranek` | Admin / Newsbox-vip | Pełny poranny raport makro (FX Majors, DXY, DAX, plan sesji). |
+| `!briefing <walor>` | Admin / Newsbox-vip | Dedykowana analiza dla 1 wybranego waloru (np. `!briefing DAX`, `!briefing BTC`). |
+| `!accuracy` / `!skutecznosc` | Admin / Newsbox-vip | Raport skuteczności: globalny counter, punktacja briefu i wnioski AI. |
+| `!portfolio` / `!portfel` | Admin / Newsbox-vip | Wyświetla podgląd Twoich spółek, notowania i podsumowanie AI. |
+| `!portfolio add <symbol>` | Admin / Newsbox-vip | Dodaje spółkę do portfela (np. `!portfolio add CDR.WA`, `!portfolio add NVDA`). |
+| `!portfolio remove <symbol>`| Admin / Newsbox-vip | Usuwa spółkę z portfela (np. `!portfolio remove TSLA`). |
+| `!portfolio news` | Admin / Newsbox-vip | Wiadomości i komunikaty dopasowane tylko do rynków spółek z portfela. |
+| `!calendar` / `!kalendarz` | Admin / Newsbox-vip | Kalendarz ekonomiczny dnia z oceną ryzyk AI. |
+| `!market` / `!notowania` | Admin / Newsbox-vip | Szybki podgląd cen śledzonych instrumentów bazowych. |
+| `!news pl` | Admin / Newsbox-vip | Newsy z Polski i parkietu GPW (Parkiet, Bankier). |
+| `!news us` / `!news usa` | Admin / Newsbox-vip | Wiadomości z USA i Wall Street (CNBC, MarketWatch). |
+| `!news crypto` / `!crypto` | Admin / Newsbox-vip | Najświeższe wiadomości ze świata kryptowalut i Web3. |
+| `!news global` | Admin / Newsbox-vip | Rynki globalne, surowce i makro (Reuters, Euronews). |
 | `!set_channel <typ>` | Admin | Przypisuje kanał (`macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`, `portfolio_news`). |
-| `!channels` | Wszyscy | Wyświetla mapowanie kanałów powiadomień. |
+| `!channels` | Admin / Newsbox-vip | Wyświetla mapowanie kanałów powiadomień. |
 | `!reload_prompts` | Admin | Przeładowuje szablony promptów z folderu `prompts/` w locie. |
-| `!status` | Wszyscy | Wyświetla stan techniczny i konfigurację bota. |
-| `!ping` | Wszyscy | Sprawdza opóźnienie bota. |
+| `!status` | Admin / Newsbox-vip | Wyświetla stan techniczny i konfigurację bota. |
+| `!ping` | Admin / Newsbox-vip | Sprawdza opóźnienie bota. |
 
 ---
 

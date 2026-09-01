@@ -30,3 +30,4 @@ def test_singleton_get_settings():
     s1 = get_settings()
     s2 = get_settings()
     assert s1 is s2
+    assert s1.vip_role_name == "Newsbox-vip"
