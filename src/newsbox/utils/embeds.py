@@ -1,4 +1,4 @@
-"""Discord Embed message builders with strict character limits for Discord API safety."""
+"""Discord Embed message builders with strict character limits and we.trade community branding."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -6,6 +6,7 @@ import discord
 
 MAX_FIELD_LENGTH = 1000
 MAX_DESCRIPTION_LENGTH = 4000
+BRAND_FOOTER = "Newsbox by we.trade • Społeczność Inwestorów & Traderów"
 
 
 def truncate(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
@@ -44,10 +45,7 @@ def create_trader_advisory_embed(
             inline=False,
         )
 
-    embed.set_footer(
-        text="Newsbox Trading Advisory • Gemini AI",
-        icon_url="https://raw.githubusercontent.com/google/material-design-icons/master/png/action/trending_up/materialicons/48dp/2x/baseline_trending_up_black_48dp.png",
-    )
+    embed.set_footer(text=BRAND_FOOTER)
     return embed
 
 
@@ -81,7 +79,7 @@ def create_single_asset_embed(
             inline=True,
         )
 
-    embed.set_footer(text="Newsbox Single Asset Advisory")
+    embed.set_footer(text=BRAND_FOOTER)
     return embed
 
 
@@ -133,7 +131,7 @@ def create_portfolio_embed(
             inline=False,
         )
 
-    embed.set_footer(text="Newsbox Portfolio Tracker")
+    embed.set_footer(text=BRAND_FOOTER)
     return embed
 
 
@@ -166,7 +164,7 @@ def create_crypto_news_embed(
             inline=False,
         )
 
-    embed.set_footer(text="Newsbox Crypto Feed")
+    embed.set_footer(text=BRAND_FOOTER)
     return embed
 
 
@@ -203,7 +201,7 @@ def create_calendar_embed(
             inline=False,
         )
 
-    embed.set_footer(text="Newsbox Economic Calendar")
+    embed.set_footer(text=BRAND_FOOTER)
     return embed
 
 
@@ -249,7 +247,7 @@ def create_regional_news_embed(
             inline=False,
         )
 
-    embed.set_footer(text="Newsbox Live Feed")
+    embed.set_footer(text=BRAND_FOOTER)
     return embed
 
 
@@ -261,7 +259,7 @@ def create_error_embed(title: str, description: str) -> discord.Embed:
         color=0xE74C3C,  # Red
         timestamp=datetime.utcnow(),
     )
-    embed.set_footer(text="Newsbox Error Notification")
+    embed.set_footer(text=BRAND_FOOTER)
     return embed
 
 
@@ -288,7 +286,7 @@ def create_accuracy_embed(
         color = 0xE74C3C  # Crimson Red
 
     embed = discord.Embed(
-        title=f"📊 Raport Skuteczności Briefingu (Ewaluacja 12:30)",
+        title="📊 Raport Skuteczności Briefingu (Ewaluacja 12:30)",
         color=color,
         timestamp=datetime.utcnow(),
     )
@@ -332,7 +330,5 @@ def create_accuracy_embed(
             inline=False,
         )
 
-    embed.set_footer(
-        text="Newsbox Quantitative Performance Tracker • Gemini AI",
-    )
+    embed.set_footer(text=BRAND_FOOTER)
     return embed

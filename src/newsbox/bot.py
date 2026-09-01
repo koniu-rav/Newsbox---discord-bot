@@ -25,6 +25,7 @@ class NewsboxBot(commands.Bot):
 
         super().__init__(
             command_prefix=self.settings.discord_command_prefix,
+            description="Newsbox — Inteligentny asystent rynkowy i briefingi makro dla społeczności we.trade",
             intents=intents,
             help_command=commands.DefaultHelpCommand(),
         )
@@ -87,10 +88,10 @@ class NewsboxBot(commands.Bot):
 
     async def on_ready(self) -> None:
         """Event triggered when Discord gateway connection is established."""
-        logger.info("Connected to Discord as %s (ID: %s)", self.user.name, self.user.id)
+        logger.info("Connected to Discord as %s (ID: %s) • we.trade", self.user.name, self.user.id)
         activity = discord.Activity(
             type=discord.ActivityType.watching,
-            name=f"Rynki & Makro | {self.settings.discord_command_prefix}briefing",
+            name="we.trade • Społeczność Traderów | !briefing",
         )
         await self.change_presence(activity=activity)
 

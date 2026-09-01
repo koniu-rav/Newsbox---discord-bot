@@ -1,17 +1,19 @@
-# 🗞️ Newsbox — AI Macro, Crypto & Portfolio Discord Bot
+# 🗞️ Newsbox — AI Macro, Crypto & Portfolio Bot by we.trade
 
+[![we.trade Community](https://img.shields.io/badge/Community-we.trade-1ABC9C.svg)](https://discord.gg)
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 [![Discord.py](https://img.shields.io/badge/discord.py-2.3%2B-5865F2.svg)](https://github.com/Rapptz/discord.py)
 [![Powered by Google Gemini](https://img.shields.io/badge/AI-Google%20Gemini-4285F4.svg)](https://ai.google.dev/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
-**Newsbox** to zaawansowany bot Discord wspierający traderów i inwestorów:
-1. **🌅 Porannym briefingiem makro o 8:00** z naciskiem na **FX Majors (EUR/USD, GBP/USD, USD/JPY), DXY oraz DAX** i oceną **co handlować 🟢 / czego unikać ⛔**.
+**Newsbox** to zaawansowany bot Discord stworzony z myślą o społeczności **we.trade**, wspierający traderów i inwestorów w podejmowaniu decyzji:
+1. **🌅 Porannym briefingiem makro o 8:00 (Pon–Pt)** z naciskiem na **FX Majors (EUR/USD, GBP/USD, USD/JPY), DXY oraz DAX** i oceną **co handlować 🟢 / czego unikać ⛔**.
 2. **🎯 Briefingiem na żądanie dla 1 wybranego waloru** (np. `!briefing DAX`, `!briefing BTC`, `!briefing TSLA`).
-3. **💼 Śledzeniem spółek z Twojego portfela** (`!portfolio`, `!portfolio add`, `!portfolio news`) z agregacją komunikatów z GPW i Wall Street.
+3. **💼 Śledzeniem spółek z Twojego portfela** (`!portfolio`, `!portfolio add`, `!portfolio news`) z agregacją komunikatów z Wall Street, Krypto i GPW.
 4. **🪙 Dedykowanym kanałem krypto (`#crypto-chat`)** z wiadomościami z CoinDesk, Cointelegraph i Decrypt.
 5. **⏳ Cichymi oknami czasowymi (Market Open Quiet Windows)** – brak zbędnych powiadomień podczas startu sesji europejskiej (08:50-09:15) i amerykańskiej (15:20-15:45).
-6. **📅 Kalendarzem ekonomicznym o 8:00** z zaleceniami AI dotyczącymi okien zmienności.
+6. **📅 Kalendarzem ekonomicznym o 7:00 (Pon–Pt)** z zaleceniami AI dotyczącymi okien zmienności.
+7. **📊 Modułem Skuteczności o 12:30 (Pon–Pt)** — weryfikacja trafności zaleceń, globalny licznik i wnioski rynkowe.
 
 ---
 
@@ -27,7 +29,7 @@
 
 ### 3. Moduł Portfela Inwestycyjnego (`!portfolio`)
 - Zarządzaj listą swoich spółek bezpośrednio z Discorda (`!portfolio add CDR.WA`, `!portfolio remove TSLA`).
-- Przeglądaj bieżące notowania i wygenerowane podsumowanie newsów tylko dla Twoich spółek (`!portfolio news`).
+- Przeglądaj bieżące notowania i wygenerowane podsumowanie newsów tylko dla rynków Twoich spółek (`!portfolio news`).
 
 ### 4. Dedykowany Strumień Krypto (`#crypto-chat`)
 - Agregacja z najważniejszych serwisów krypto: CoinDesk, Cointelegraph, Decrypt.
@@ -44,7 +46,7 @@
 
 ## 💬 Komendy Bota & Uprawnienia
 
-> 🔒 **Autoryzacja**: Dostęp do wywoływania wszystkich komend Newsbox mają wyłącznie **Administratorzy** oraz użytkownicy z rolą **`Newsbox-vip`**.
+> 🔒 **Autoryzacja**: Dostęp do wywoływania komend bota mają wyłącznie **Administratorzy** oraz użytkownicy z rolą **`Newsbox-vip`** w społeczności **we.trade**.
 
 | Komenda | Wymagana Rola | Opis |
 | :--- | :--- | :--- |
@@ -57,6 +59,7 @@
 | `!portfolio news` | Admin / Newsbox-vip | Wiadomości i komunikaty dopasowane tylko do rynków spółek z portfela. |
 | `!calendar` / `!kalendarz` | Admin / Newsbox-vip | Kalendarz ekonomiczny dnia z oceną ryzyk AI. |
 | `!market` / `!notowania` | Admin / Newsbox-vip | Szybki podgląd cen śledzonych instrumentów bazowych. |
+| `!wetrade` / `!about` | Admin / Newsbox-vip | Informacje o społeczności we.trade i modułach bota. |
 | `!news pl` | Admin / Newsbox-vip | Newsy z Polski i parkietu GPW (Parkiet, Bankier). |
 | `!news us` / `!news usa` | Admin / Newsbox-vip | Wiadomości z USA i Wall Street (CNBC, MarketWatch). |
 | `!news crypto` / `!crypto` | Admin / Newsbox-vip | Najświeższe wiadomości ze świata kryptowalut i Web3. |
@@ -64,7 +67,7 @@
 | `!set_channel <typ>` | Admin | Przypisuje kanał (`macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`, `portfolio_news`). |
 | `!channels` | Admin / Newsbox-vip | Wyświetla mapowanie kanałów powiadomień. |
 | `!reload_prompts` | Admin | Przeładowuje szablony promptów z folderu `prompts/` w locie. |
-| `!status` | Admin / Newsbox-vip | Wyświetla stan techniczny i konfigurację bota. |
+| `!status` | Admin / Newsbox-vip | Wyświetla stan techniczny, konfigurację bota i branding we.trade. |
 | `!ping` | Admin / Newsbox-vip | Sprawdza opóźnienie bota. |
 
 ---
