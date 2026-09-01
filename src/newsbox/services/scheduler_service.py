@@ -1,4 +1,4 @@
-"""Scheduler service to manage timed automated dispatches (7:00 AM Calendar, 8:00 AM Briefing)."""
+"""Scheduler service to manage timed automated dispatches Monday-Friday (7:00 Calendar, 8:00 Briefing, 12:30 Accuracy)."""
 
 from typing import Callable, Coroutine, Any, Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -10,7 +10,7 @@ logger = setup_logger(__name__)
 
 
 class SchedulerService:
-    """Async background task scheduler using APScheduler."""
+    """Async background task scheduler using APScheduler (restricted to trading days Mon-Fri)."""
 
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -22,13 +22,14 @@ class SchedulerService:
         calendar_job: Callable[[], Coroutine[Any, Any, None]],
         time_str: Optional[str] = None,
     ) -> None:
-        """Register daily economic calendar job (default 07:00)."""
+        """Register daily economic calendar job (Mon-Fri at 07:00)."""
         target_time = time_str or self.settings.calendar_time
         time_parts = target_time.split(":")
         hour = int(time_parts[0]) if len(time_parts) > 0 else 7
         minute = int(time_parts[1]) if len(time_parts) > 1 else 0
 
         trigger = CronTrigger(
+            day_of_week="mon-fri",
             hour=hour,
             minute=minute,
             timezone=self.settings.briefing_timezone,
@@ -38,11 +39,11 @@ class SchedulerService:
             calendar_job,
             trigger=trigger,
             id="daily_economic_calendar",
-            name="Daily 7:00 AM Economic Calendar",
+            name="Mon-Fri 7:00 AM Economic Calendar",
             replace_existing=True,
         )
         logger.info(
-            "Scheduled daily economic calendar for %02d:%02d (%s)",
+            "Scheduled Mon-Fri economic calendar for %02d:%02d (%s)",
             hour,
             minute,
             self.settings.briefing_timezone,
@@ -53,13 +54,14 @@ class SchedulerService:
         briefing_job: Callable[[], Coroutine[Any, Any, None]],
         time_str: Optional[str] = None,
     ) -> None:
-        """Register daily macro briefing job (default 08:00)."""
+        """Register daily macro briefing job (Mon-Fri at 08:00)."""
         target_time = time_str or self.settings.briefing_time
         time_parts = target_time.split(":")
         hour = int(time_parts[0]) if len(time_parts) > 0 else 8
         minute = int(time_parts[1]) if len(time_parts) > 1 else 0
 
         trigger = CronTrigger(
+            day_of_week="mon-fri",
             hour=hour,
             minute=minute,
             timezone=self.settings.briefing_timezone,
@@ -69,11 +71,11 @@ class SchedulerService:
             briefing_job,
             trigger=trigger,
             id="daily_macro_briefing",
-            name="Daily 8:00 AM Macro Briefing",
+            name="Mon-Fri 8:00 AM Macro Briefing",
             replace_existing=True,
         )
         logger.info(
-            "Scheduled daily macro briefing for %02d:%02d (%s)",
+            "Scheduled Mon-Fri macro briefing for %02d:%02d (%s)",
             hour,
             minute,
             self.settings.briefing_timezone,
@@ -84,13 +86,14 @@ class SchedulerService:
         accuracy_job: Callable[[], Coroutine[Any, Any, None]],
         time_str: Optional[str] = None,
     ) -> None:
-        """Register daily accuracy & performance evaluation job (default 12:30)."""
+        """Register daily accuracy & performance evaluation job (Mon-Fri at 12:30)."""
         target_time = time_str or self.settings.accuracy_time
         time_parts = target_time.split(":")
         hour = int(time_parts[0]) if len(time_parts) > 0 else 12
         minute = int(time_parts[1]) if len(time_parts) > 1 else 30
 
         trigger = CronTrigger(
+            day_of_week="mon-fri",
             hour=hour,
             minute=minute,
             timezone=self.settings.briefing_timezone,
@@ -100,11 +103,11 @@ class SchedulerService:
             accuracy_job,
             trigger=trigger,
             id="daily_accuracy_evaluation",
-            name="Daily 12:30 PM Accuracy Evaluation",
+            name="Mon-Fri 12:30 PM Accuracy Evaluation",
             replace_existing=True,
         )
         logger.info(
-            "Scheduled daily accuracy evaluation for %02d:%02d (%s)",
+            "Scheduled Mon-Fri accuracy evaluation for %02d:%02d (%s)",
             hour,
             minute,
             self.settings.briefing_timezone,
@@ -115,7 +118,7 @@ class SchedulerService:
         if not self._is_running:
             self.scheduler.start()
             self._is_running = True
-            logger.info("Scheduler service started.")
+            logger.info("Scheduler service started (Mon-Fri active).")
 
     def shutdown(self) -> None:
         """Gracefully stop the scheduler."""

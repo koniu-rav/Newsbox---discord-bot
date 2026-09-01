@@ -1,4 +1,4 @@
-"""Unit tests for Accuracy & Performance Tracking Service with strict lifecycle rules."""
+"""Unit tests for Accuracy & Performance Tracking Service with strict trading days rules."""
 
 from datetime import date
 from newsbox.services.accuracy_service import AccuracyService, categorize_score, get_status_badge
@@ -29,6 +29,50 @@ def test_get_status_badge():
     assert "Analiza nieudana" in get_status_badge("nieudana")
 
 
+def test_weekend_skip_and_monday_evaluation(tmp_path):
+    """Test Friday-to-Monday transition: Friday briefing is evaluated on Monday."""
+    history_file = tmp_path / "test_weekend_history.json"
+    service = AccuracyService(history_file=history_file)
+
+    # 1. Friday (2026-09-04): Save official 08:00 AM briefing
+    friday_date = "2026-09-04"
+    service.save_official_morning_briefing(
+        advisory_text="Piątkowe zalecenie: DAX Long przed weekendem",
+        market_snapshot={"DAX": {"price": "18500"}},
+        briefing_date=friday_date,
+    )
+
+    # 2. Weekend (Saturday 2026-09-05 & Sunday 2026-09-06): No scheduled dispatches
+    # 3. Monday (2026-09-07): Save Monday 08:00 AM briefing
+    monday_date = date(2026, 9, 7)
+    service.save_official_morning_briefing(
+        advisory_text="Poniedziałkowe zalecenie: EUR/USD Short",
+        market_snapshot={"EUR/USD": {"price": "1.0850"}},
+        briefing_date="2026-09-07",
+    )
+
+    # 4. Monday 12:30 evaluation: Must evaluate FRIDAY'S briefing (2026-09-04)
+    target_to_eval = service.get_yesterday_briefing_to_evaluate(reference_date=monday_date)
+    assert target_to_eval is not None
+    assert target_to_eval["date"] == "2026-09-04"
+
+    # 5. Record evaluation for Friday's briefing
+    record = service.record_evaluation(
+        date_str="2026-09-04",
+        score=90,
+        breakdown="• DAX: +1.5% w górę po otwarciu sesji w USA",
+        conclusions="Bycze pozycjonowanie na weekend zrealizowane.",
+    )
+    assert record["status"] == "udana"
+    assert record["score"] == 90
+
+    # 6. Check that Monday's brief (2026-09-07) remains pending for Tuesday
+    tuesday_date = date(2026, 9, 8)
+    tuesday_target = service.get_yesterday_briefing_to_evaluate(reference_date=tuesday_date)
+    assert tuesday_target is not None
+    assert tuesday_target["date"] == "2026-09-07"
+
+
 def test_accuracy_service_lifecycle_and_rules(tmp_path):
     """Test strict evaluation rules: yesterday only, no duplicates, official 8:00 saving."""
     history_file = tmp_path / "test_history.json"
@@ -43,7 +87,7 @@ def test_accuracy_service_lifecycle_and_rules(tmp_path):
 
     # On Day 1 at 12:30 (ref date 2026-09-01), there is NO yesterday briefing yet
     pending_day1 = service.get_yesterday_briefing_to_evaluate(reference_date=date(2026, 9, 1))
-    assert pending_day1 is None  # Today's brief is NOT evaluated today!
+    assert pending_day1 is None
 
     # 2. Day 2 (2026-09-02): Morning briefing for Day 2 is saved
     service.save_official_morning_briefing(
@@ -72,8 +116,7 @@ def test_accuracy_service_lifecycle_and_rules(tmp_path):
     assert stats["successful"] == 1
     assert stats["win_rate"] == 100.0
 
-    # 4. Idempotency test: If evaluation for 2026-09-01 is re-recorded (e.g. repeated manual command),
-    # stats total MUST NOT increase!
+    # 4. Idempotency test: If evaluation for 2026-09-01 is re-recorded, stats total MUST NOT increase!
     service.record_evaluation(
         date_str="2026-09-01",
         score=85,
@@ -81,7 +124,7 @@ def test_accuracy_service_lifecycle_and_rules(tmp_path):
         conclusions="Wnioski powtórzone.",
     )
     stats_after_repeat = service.get_global_stats()
-    assert stats_after_repeat["total"] == 1  # Still 1, NOT 2!
+    assert stats_after_repeat["total"] == 1
 
     # 5. Day 3 (2026-09-03): Evaluate Day 2 (2026-09-02)
     pending_day3 = service.get_yesterday_briefing_to_evaluate(reference_date=date(2026, 9, 3))
