@@ -1,3 +1,5 @@
+"""Channels Cog - manages multi-channel routing for briefings, calendar, regional news, crypto, and portfolio."""
+
 from typing import Optional
 import discord
 from discord.ext import commands
@@ -25,12 +27,14 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
         """Przypisz dany kanał Discord do wybranego typu powiadomień.
 
         Typy:
-        - `macro` (lub `briefing`): Poranny raport 8:00 AM + Trader Advisory
+        - `macro` (lub `briefing`): Poranny raport 8:00 AM + FX/DAX Advisory
         - `calendar` (lub `kalendarz`): Kalendarz ekonomiczny i ryzyka
         - `news_pl` (lub `pl`): Newsy z Polski / GPW / Parkiet
         - `news_global` (lub `global`, `us`): Newsy światowe i USA
+        - `crypto` (lub `krypto`): Dedykowany kanał krypto (#crypto-chat)
+        - `portfolio` (lub `portfel`): Alerty i komunikaty dla Twoich spółek
 
-        Przykład: `!set_channel macro #raport-makro`
+        Przykład: `!set_channel crypto #crypto-chat`
         """
         target = channel or ctx.channel
         if not isinstance(target, discord.TextChannel):
@@ -42,7 +46,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
         if c_type in ["macro", "briefing", "poranek"]:
             self.settings.discord_macro_channel_id = target.id
             self.settings.discord_briefing_channel_id = target.id
-            desc = "🌅 Poranny Raport Makro & Trader Advisory (8:00)"
+            desc = "🌅 Poranny Raport Makro & FX/DAX Advisory (8:00)"
         elif c_type in ["calendar", "kalendarz"]:
             self.settings.discord_calendar_channel_id = target.id
             desc = "📅 Kalendarz Ekonomiczny & Ryzyka Sesji"
@@ -52,13 +56,19 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
         elif c_type in ["news_global", "global", "us", "usa", "swiat"]:
             self.settings.discord_news_global_channel_id = target.id
             desc = "🌐 Wiadomości Światowe & USA"
+        elif c_type in ["crypto", "krypto", "crypto-chat", "btc"]:
+            self.settings.discord_crypto_channel_id = target.id
+            desc = "🪙 Dedykowany Kanał Krypto (#crypto-chat)"
+        elif c_type in ["portfolio", "portfel", "spolki"]:
+            self.settings.discord_portfolio_channel_id = target.id
+            desc = "💼 Alerty & Wiadomości Spółek Portfelowych"
         else:
             await ctx.send(
-                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `news_pl`, `news_global`."
+                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`."
             )
             return
 
-        await ctx.send(f"✅ Kanał {target.mention} został ustawiony dla: **{desc}**.")
+        await ctx.send(f"✅ Kanał {target.mention} został przypisany dla: **{desc}**.")
         logger.info("Routing updated: %s -> #%s (%s)", c_type, target.name, target.id)
 
     @commands.command(name="channels", aliases=["kanaly"])
@@ -92,6 +102,16 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             value=ch_mention(self.settings.discord_news_global_channel_id),
             inline=False,
         )
+        embed.add_field(
+            name="🪙 Krypto (#crypto-chat)",
+            value=ch_mention(self.settings.discord_crypto_channel_id),
+            inline=False,
+        )
+        embed.add_field(
+            name="💼 Portfel Spółek",
+            value=ch_mention(self.settings.discord_portfolio_channel_id),
+            inline=False,
+        )
 
         embed.set_footer(text="Użyj !set_channel <typ> #kanal aby zmienić przypisanie.")
         await ctx.send(embed=embed)
@@ -100,4 +120,3 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
 async def setup(bot: commands.Bot) -> None:
     """Extension cog setup."""
     await bot.add_cog(ChannelsCog(bot))
-

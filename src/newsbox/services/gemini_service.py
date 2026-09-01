@@ -1,4 +1,6 @@
-"""Gemini AI Service for generating macro summaries, trader advisory, and calendar insights."""
+"""Gemini AI Service for generating macro summaries, trader advisory, single-asset briefs, and portfolio insights."""
+
+from __future__ import annotations
 
 import asyncio
 from pathlib import Path
@@ -19,7 +21,7 @@ class GeminiService:
         prompts_dir: Optional[str] = None,
     ) -> None:
         self.settings = get_settings()
-        self.api_key = api_key or self.settings.gemini_api_key
+        self.api_key = self.settings.gemini_api_key if api_key is None else api_key
         self.model_name = model_name or self.settings.gemini_model
         self.prompts_dir = Path(prompts_dir or self.settings.prompts_dir)
         self._client = None
@@ -64,20 +66,24 @@ class GeminiService:
         economic_events: List[Dict[str, Any]],
         news_headlines: List[Dict[str, Any]],
     ) -> str:
-        """Generate comprehensive 8:00 AM daily trading advisory with Do's and Don'ts."""
+        """Generate comprehensive 8:00 AM daily trading advisory focused on FX Majors, DXY, and DAX."""
         if not self._client:
             return (
-                "🧭 **MARKET REGIME & BIAS**: Umiarkowany Risk-On przy stabilizacji DXY.\n\n"
+                "🧭 **MARKET REGIME & MAKRO BIAS**: Umiarkowany Risk-On przy konsolidacji DXY wokół 104.20.\n\n"
+                "💱 **FX MAJORS & DXY**:\n"
+                "- **EUR/USD**: Spokojny handel przed popołudniowymi odczytami z USA. Wsparcie na 1.0820.\n"
+                "- **USD/JPY**: Presja wzrostowa podtrzymana przez rentowności obligacji USA.\n\n"
+                "🇩🇪 **DAX & EUROPEAN EQUITIES**:\n"
+                "- Pozytywne otwarcie kasowe o 09:00. Cel kupujących: 18,480 pkt.\n\n"
                 "🟢 **CO MOŻNA DZISIAJ HANDLOWAĆ (IN PLAY)**:\n"
-                "- **DAX / Indeksy UE**: Pozytywny sentyment po otwarciu sesji europejskiej.\n"
-                "- **BTC**: Utrzymanie kluczowego wsparcia, kontynuacja trendu wzrostowego.\n\n"
+                "- **DAX (Long)**: Wybicie lokalnego oporu na otwarciu sesji we Frankfurcie.\n"
+                "- **BTC**: Utrzymanie strefy popytowej, perspektywa testu 68k$.\n\n"
                 "⛔ **CZEGO DZISIAJ NIE HANDLOWAĆ (NO-TRADE)**:\n"
-                "- **EUR/USD & Pary z USD**: Unikaj agresywnych pozycji intraday przed publikacją danych o 14:30.\n\n"
+                "- **EUR/USD & Pary USD**: Unikaj pozycji intraday w oknie 14:25-14:40 z uwagi na odczyty makro.\n\n"
                 "📋 **PLAN SESJI & WSKAZÓWKI**:\n"
-                "- Zachowaj ostrożność w oknie 14:30-16:00. Zmniejsz wielkość pozycji przed odczytami makro."
+                "- Handluj pierwsze 45 minut po otwarciu 09:00, następnie zredukuj ryzyko przed danymi z USA o 14:30."
             )
 
-        # Format inputs
         market_lines = [
             f"- {ticker}: {info.get('price', 'N/A')} ({info.get('change_pct', '0.00%')})"
             for ticker, info in market_data.items()
@@ -85,7 +91,7 @@ class GeminiService:
         market_str = "\n".join(market_lines) if market_lines else "Brak danych rynkowych"
 
         event_lines = [
-            f"- {e.get('time', '')} [{e.get('currency', '')}] {e.get('title', '')} (Wpływ: {e.get('impact', '🟡')})"
+            f"- {e.get('time', '')} [{e.get('currency', '')}] {e.get('title', '')} (Waga: {e.get('impact', '🟡')})"
             for e in economic_events[:8]
         ]
         events_str = "\n".join(event_lines) if event_lines else "Brak kluczowych publikacji dzisiaj"
@@ -98,7 +104,7 @@ class GeminiService:
 
         template = self.get_prompt_template(
             "trader_advisory",
-            default="Podsumuj sytuację rynkową i wskaż co handlować, a czego unikać dzisiaj:\n{market_data_str}\n{calendar_events_str}\n{news_headlines_str}"
+            default="Podsumuj sytuację rynkową z naciskiem na FX Majors, DXY i DAX:\n{market_data_str}\n{calendar_events_str}\n{news_headlines_str}"
         )
 
         prompt = template.format(
@@ -108,6 +114,83 @@ class GeminiService:
         )
 
         return await self._call_gemini(prompt, fallback_msg="Nie udało się wygenerować rekomendacji AI.")
+
+    async def generate_single_asset_advisory(
+        self,
+        symbol: str,
+        asset_data: Dict[str, Any],
+        news_headlines: List[Dict[str, Any]],
+    ) -> str:
+        """Generate targeted trading advisory for a single asset (e.g. DAX, BTC, EUR/USD)."""
+        if not self._client:
+            return (
+                f"🎯 **ANALIZA DLA {symbol.upper()}**:\n"
+                f"- **Kierunek**: Umiarkowanie Byczy (Long bias).\n"
+                f"- **Aktualna cena**: `{asset_data.get('price', 'N/A')}` ({asset_data.get('change_pct', '0.00%')}).\n"
+                f"- **Zalecenie**: Szukaj wejścia po re-teście wsparcia na niższych interwałach (M15/H1).\n"
+                f"- **Ryzyko**: Zwróć uwagę na zachowanie DXY i popołudniowe publikacje z USA."
+            )
+
+        asset_str = f"Cena: {asset_data.get('price')}, Zmiana 24h: {asset_data.get('change_pct')}, Ticker: {asset_data.get('ticker')}"
+        headlines_lines = [f"- {h.get('title')} ({h.get('source')})" for h in news_headlines[:5]]
+        headlines_str = "\n".join(headlines_lines) if headlines_lines else "Brak bezpośrednich nagłówków."
+
+        template = self.get_prompt_template(
+            "single_asset_advisory",
+            default="Przeanalizuj instrument {symbol}:\n{asset_data_str}\n{relevant_headlines_str}"
+        )
+        prompt = template.format(
+            symbol=symbol.upper(),
+            asset_data_str=asset_str,
+            relevant_headlines_str=headlines_str,
+        )
+
+        fallback_mock = (
+            f"🎯 **ANALIZA DLA {symbol.upper()}**:\n"
+            f"- **Kierunek**: Umiarkowanie Byczy (Long bias).\n"
+            f"- **Aktualna cena**: `{asset_data.get('price', 'N/A')}` ({asset_data.get('change_pct', '0.00%')}).\n"
+            f"- **Zalecenie**: Szukaj wejścia po re-teście wsparcia na niższych interwałach (M15/H1).\n"
+            f"- **Ryzyko**: Zwróć uwagę na zachowanie DXY i popołudniowe publikacje z USA."
+        )
+
+        return await self._call_gemini(prompt, fallback_msg=fallback_mock)
+
+    async def generate_portfolio_summary(
+        self,
+        portfolio_data: Dict[str, Any],
+        portfolio_news: List[Dict[str, Any]],
+    ) -> str:
+        """Generate analysis and news digest for user's portfolio holdings."""
+        if not self._client:
+            return (
+                "🚨 **KOMUNIKATY I ALERTY DLA PORTFELA**:\n"
+                "- Spółki technologiczne i GPW utrzymują stabilne tempo wzrostu.\n"
+                "- Brak negatywnych ostrzeżeń wynikowych w komunikatach ESPI/EBI.\n"
+                "📈 **OCENA SYTUACJI**: Pozycje bezpieczne, zachowaj trailing stop na zyskownych walorach."
+            )
+
+        quotes_lines = [
+            f"- {sym}: {info.get('price')} ({info.get('change_pct')})"
+            for sym, info in portfolio_data.items()
+        ]
+        quotes_str = "\n".join(quotes_lines)
+
+        news_lines = [
+            f"- [{h.get('matched_symbol', 'INFO')}] {h.get('title')} ({h.get('source')})"
+            for h in portfolio_news
+        ]
+        news_str = "\n".join(news_lines) if news_lines else "Brak nowych komunikatów dla portfela."
+
+        template = self.get_prompt_template(
+            "portfolio_news",
+            default="Podsumuj sytuację i wiadomości dla spółek z portfela:\n{portfolio_quotes_str}\n{portfolio_headlines_str}"
+        )
+        prompt = template.format(
+            portfolio_quotes_str=quotes_str,
+            portfolio_headlines_str=news_str,
+        )
+
+        return await self._call_gemini(prompt, fallback_msg="Podsumowanie portfela chwilowo niedostępne.")
 
     async def generate_calendar_advisory(self, economic_events: List[Dict[str, Any]]) -> str:
         """Generate analysis and warnings based on today's economic calendar."""

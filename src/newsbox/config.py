@@ -1,12 +1,17 @@
-"""Application configuration management with environment variable loading and multi-channel routing."""
+"""Application configuration management with environment variable loading, multi-channel routing, and portfolio settings."""
+
+from __future__ import annotations
 
 import os
+from datetime import time
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 # Default assets mapping
-DEFAULT_TICKERS_STR = "DXY=DX-Y.NYB,EUR/USD=EURUSD=X,DAX=^GDAXI,BTC=BTC-USD"
+DEFAULT_TICKERS_STR = "DXY=DX-Y.NYB,EUR/USD=EURUSD=X,DAX=^GDAXI,BTC=BTC-USD,GBP/USD=GBPUSD=X,USD/JPY=USDJPY=X"
+DEFAULT_PORTFOLIO_STR = "CDR.WA,PKN.WA,NVDA,TSLA,AAPL"
+DEFAULT_QUIET_WINDOWS = "08:50-09:15,15:20-15:45"
 
 
 def parse_tickers(tickers_raw: str) -> Dict[str, str]:
@@ -24,6 +29,31 @@ def parse_tickers(tickers_raw: str) -> Dict[str, str]:
     return result
 
 
+def parse_portfolio(portfolio_raw: str) -> List[str]:
+    """Parse comma-separated portfolio tickers string into a list of clean symbols."""
+    if not portfolio_raw:
+        return [t.strip() for t in DEFAULT_PORTFOLIO_STR.split(",") if t.strip()]
+    return [t.strip() for t in portfolio_raw.split(",") if t.strip()]
+
+
+def parse_quiet_windows(raw_windows: str) -> List[Tuple[time, time]]:
+    """Parse string of time intervals e.g. '08:50-09:15,15:20-15:45' into (start_time, end_time) tuples."""
+    results = []
+    if not raw_windows:
+        raw_windows = DEFAULT_QUIET_WINDOWS
+    for interval in raw_windows.split(","):
+        interval = interval.strip()
+        if "-" in interval:
+            start_str, end_str = interval.split("-", 1)
+            try:
+                sh, sm = map(int, start_str.strip().split(":"))
+                eh, em = map(int, end_str.strip().split(":"))
+                results.append((time(sh, sm), time(eh, em)))
+            except Exception:
+                pass
+    return results
+
+
 try:
     from pydantic_settings import BaseSettings, SettingsConfigDict
     from pydantic import Field, field_validator
@@ -36,11 +66,13 @@ try:
         discord_guild_id: Optional[int] = Field(default=None, alias="DISCORD_GUILD_ID")
         discord_command_prefix: str = Field(default="!", alias="DISCORD_COMMAND_PREFIX")
 
-        # Multi-Channel Routing (IDs of specific target channels)
+        # Multi-Channel Routing
         discord_macro_channel_id: Optional[int] = Field(default=None, alias="DISCORD_MACRO_CHANNEL_ID")
         discord_calendar_channel_id: Optional[int] = Field(default=None, alias="DISCORD_CALENDAR_CHANNEL_ID")
         discord_news_pl_channel_id: Optional[int] = Field(default=None, alias="DISCORD_NEWS_PL_CHANNEL_ID")
         discord_news_global_channel_id: Optional[int] = Field(default=None, alias="DISCORD_NEWS_GLOBAL_CHANNEL_ID")
+        discord_crypto_channel_id: Optional[int] = Field(default=None, alias="DISCORD_CRYPTO_CHANNEL_ID")
+        discord_portfolio_channel_id: Optional[int] = Field(default=None, alias="DISCORD_PORTFOLIO_CHANNEL_ID")
 
         # Backward compatibility alias
         discord_briefing_channel_id: Optional[int] = Field(default=None, alias="DISCORD_BRIEFING_CHANNEL_ID")
@@ -51,6 +83,8 @@ try:
             "discord_calendar_channel_id",
             "discord_news_pl_channel_id",
             "discord_news_global_channel_id",
+            "discord_crypto_channel_id",
+            "discord_portfolio_channel_id",
             "discord_briefing_channel_id",
             mode="before",
         )
@@ -69,6 +103,12 @@ try:
 
         # Configurable Asset Tickers
         tickers_config: str = Field(default=DEFAULT_TICKERS_STR, alias="TICKERS")
+
+        # Configurable Portfolio Watchlist
+        portfolio_config: str = Field(default=DEFAULT_PORTFOLIO_STR, alias="PORTFOLIO_TICKERS")
+
+        # Market Open Quiet Windows (HH:MM-HH:MM comma-separated)
+        session_quiet_windows: str = Field(default=DEFAULT_QUIET_WINDOWS, alias="SESSION_QUIET_WINDOWS")
 
         # Schedule Configuration
         briefing_time: str = Field(default="08:00", alias="BRIEFING_TIME")
@@ -93,6 +133,16 @@ try:
         def tickers(self) -> Dict[str, str]:
             """Parsed dictionary of tickers."""
             return parse_tickers(self.tickers_config)
+
+        @property
+        def portfolio_tickers(self) -> List[str]:
+            """Parsed list of portfolio tickers."""
+            return parse_portfolio(self.portfolio_config)
+
+        @property
+        def quiet_windows(self) -> List[Tuple[time, time]]:
+            """Parsed list of session quiet windows (start_time, end_time)."""
+            return parse_quiet_windows(self.session_quiet_windows)
 
         @property
         def macro_channel_id(self) -> Optional[int]:
@@ -125,13 +175,25 @@ except ImportError:
                 int(glob_ch) if glob_ch and glob_ch.isdigit() else None
             )
 
+            crypto_ch = os.getenv("DISCORD_CRYPTO_CHANNEL_ID")
+            self.discord_crypto_channel_id: Optional[int] = (
+                int(crypto_ch) if crypto_ch and crypto_ch.isdigit() else None
+            )
+
+            port_ch = os.getenv("DISCORD_PORTFOLIO_CHANNEL_ID")
+            self.discord_portfolio_channel_id: Optional[int] = (
+                int(port_ch) if port_ch and port_ch.isdigit() else None
+            )
+
             # Gemini & Prompts
             self.gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
             self.gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
             self.prompts_dir: str = os.getenv("PROMPTS_DIR", "prompts")
 
-            # Tickers
+            # Tickers & Portfolio
             self.tickers_config: str = os.getenv("TICKERS", DEFAULT_TICKERS_STR)
+            self.portfolio_config: str = os.getenv("PORTFOLIO_TICKERS", DEFAULT_PORTFOLIO_STR)
+            self.session_quiet_windows: str = os.getenv("SESSION_QUIET_WINDOWS", DEFAULT_QUIET_WINDOWS)
 
             # Schedule
             self.briefing_time: str = os.getenv("BRIEFING_TIME", "08:00")
@@ -149,6 +211,16 @@ except ImportError:
         def tickers(self) -> Dict[str, str]:
             """Parsed dictionary of tickers."""
             return parse_tickers(self.tickers_config)
+
+        @property
+        def portfolio_tickers(self) -> List[str]:
+            """Parsed list of portfolio tickers."""
+            return parse_portfolio(self.portfolio_config)
+
+        @property
+        def quiet_windows(self) -> List[Tuple[time, time]]:
+            """Parsed list of session quiet windows (start_time, end_time)."""
+            return parse_quiet_windows(self.session_quiet_windows)
 
         @property
         def macro_channel_id(self) -> Optional[int]:
