@@ -44,7 +44,7 @@ class NewsCog(commands.Cog, name="News Feed"):
             reg_normalized = region.upper()
             if reg_normalized in ["CRYPTO", "KRYPTO", "BTC"]:
                 headlines = await self.news_service.fetch_crypto_news(limit=6)
-                summary = await self.gemini_service.generate_news_summary(headlines)
+                summary = await self.gemini_service.generate_crypto_summary(headlines)
                 embed = create_crypto_news_embed(
                     headlines=headlines,
                     summary_text=summary + quiet_notice if summary else quiet_notice,

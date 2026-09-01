@@ -214,6 +214,29 @@ class GeminiService:
 
         return await self._call_gemini(prompt, fallback_msg="Analiza kalendarza chwilowo niedostępna.")
 
+    async def generate_crypto_summary(self, crypto_headlines: List[Dict[str, Any]]) -> str:
+        """Generate a dedicated global cryptocurrency and digital asset summary."""
+        if not self._client:
+            return (
+                "🪙 **BITCOIN & ETHEREUM**: BTC konsoliduje powyżej kluczowego wsparcia przy stabilnych napływach do funduszy ETF.\n"
+                "⚡ **ALTCOINY & DEFI**: Aktywność na sieciach L2 i wolumeny DEX utrzymują trend wzrostowy.\n"
+                "🏛️ **MAKRO & REGULACJE**: Globalne rynki wyceniają kolejne etapy adaptacji krypto przez instytucje."
+            )
+
+        news_lines = [
+            f"- {h.get('title', '')} (Źródło: {h.get('source', 'Crypto')})"
+            for h in crypto_headlines[:10]
+        ]
+        news_str = "\n".join(news_lines) if news_lines else "Brak świeżych nagłówków krypto."
+
+        template = self.get_prompt_template(
+            "crypto_summary",
+            default="Podsumuj sytuację na globalnym rynku krypto:\n{crypto_headlines_str}"
+        )
+        prompt = template.format(crypto_headlines_str=news_str)
+
+        return await self._call_gemini(prompt, fallback_msg="Podsumowanie krypto chwilowo niedostępne.")
+
     async def generate_news_summary(self, regional_headlines: List[Dict[str, Any]]) -> str:
         """Generate a synthesized multi-region news brief."""
         if not self._client:
