@@ -94,7 +94,7 @@ class NewsboxBot(commands.Bot):
         if macro_ch_id:
             channel = await self._resolve_channel(macro_ch_id)
             if channel:
-                await briefings_cog.compile_and_send_macro_briefing(channel)
+                await briefings_cog.compile_and_send_macro_briefing(channel, is_scheduled=True)
         else:
             logger.warning("No channel configured for 8:00 AM macro briefing dispatch.")
 

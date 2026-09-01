@@ -1,5 +1,6 @@
-"""Unit tests for Accuracy & Performance Tracking Service."""
+"""Unit tests for Accuracy & Performance Tracking Service with strict lifecycle rules."""
 
+from datetime import date
 from newsbox.services.accuracy_service import AccuracyService, categorize_score, get_status_badge
 from newsbox.utils.embeds import create_accuracy_embed
 
@@ -28,25 +29,37 @@ def test_get_status_badge():
     assert "Analiza nieudana" in get_status_badge("nieudana")
 
 
-def test_accuracy_service_lifecycle(tmp_path):
-    """Test saving briefings, evaluating, and calculating global stats."""
+def test_accuracy_service_lifecycle_and_rules(tmp_path):
+    """Test strict evaluation rules: yesterday only, no duplicates, official 8:00 saving."""
     history_file = tmp_path / "test_history.json"
     service = AccuracyService(history_file=history_file)
 
-    # 1. Save morning briefing
-    service.save_briefing(
+    # 1. Day 1 (2026-09-01): Save official 08:00 AM briefing
+    service.save_official_morning_briefing(
         advisory_text="Kupuj DAX, unikaj EUR/USD",
         market_snapshot={"DAX": {"price": "18400"}},
-        briefing_date="2026-08-31",
+        briefing_date="2026-09-01",
     )
 
-    pending = service.get_latest_briefing_to_evaluate()
-    assert pending is not None
-    assert pending["date"] == "2026-08-31"
+    # On Day 1 at 12:30 (ref date 2026-09-01), there is NO yesterday briefing yet
+    pending_day1 = service.get_yesterday_briefing_to_evaluate(reference_date=date(2026, 9, 1))
+    assert pending_day1 is None  # Today's brief is NOT evaluated today!
 
-    # 2. Record successful evaluation (score 85%)
+    # 2. Day 2 (2026-09-02): Morning briefing for Day 2 is saved
+    service.save_official_morning_briefing(
+        advisory_text="BTC Long, DAX Short",
+        market_snapshot={"BTC": {"price": "60000"}},
+        briefing_date="2026-09-02",
+    )
+
+    # On Day 2 at 12:30 (ref date 2026-09-02), yesterday's briefing (2026-09-01) is ready to evaluate!
+    pending_day2 = service.get_yesterday_briefing_to_evaluate(reference_date=date(2026, 9, 2))
+    assert pending_day2 is not None
+    assert pending_day2["date"] == "2026-09-01"
+
+    # 3. Record evaluation for 2026-09-01
     record = service.record_evaluation(
-        date_str="2026-08-31",
+        date_str="2026-09-01",
         score=85,
         breakdown="• DAX: +1.2% zysk\n• EUR/USD: płasko",
         conclusions="Wysoka korelacja potwierdziła prognozę.",
@@ -54,28 +67,40 @@ def test_accuracy_service_lifecycle(tmp_path):
     assert record["status"] == "udana"
     assert record["score"] == 85
 
-    # 3. Check stats
     stats = service.get_global_stats()
     assert stats["total"] == 1
     assert stats["successful"] == 1
-    assert stats["failed"] == 0
     assert stats["win_rate"] == 100.0
-    assert stats["average_score"] == 85.0
 
-    # 4. Add a failed evaluation (score 20%)
+    # 4. Idempotency test: If evaluation for 2026-09-01 is re-recorded (e.g. repeated manual command),
+    # stats total MUST NOT increase!
     service.record_evaluation(
         date_str="2026-09-01",
+        score=85,
+        breakdown="• DAX: +1.2% zysk",
+        conclusions="Wnioski powtórzone.",
+    )
+    stats_after_repeat = service.get_global_stats()
+    assert stats_after_repeat["total"] == 1  # Still 1, NOT 2!
+
+    # 5. Day 3 (2026-09-03): Evaluate Day 2 (2026-09-02)
+    pending_day3 = service.get_yesterday_briefing_to_evaluate(reference_date=date(2026, 9, 3))
+    assert pending_day3 is not None
+    assert pending_day3["date"] == "2026-09-02"
+
+    service.record_evaluation(
+        date_str="2026-09-02",
         score=20,
-        breakdown="• DAX: Ruch przeciwny do zalecenia",
-        conclusions="Niespodziewany odczyt inflacji.",
+        breakdown="• BTC: Spadek",
+        conclusions="Odwrót na rynku krypto.",
     )
 
-    stats2 = service.get_global_stats()
-    assert stats2["total"] == 2
-    assert stats2["successful"] == 1
-    assert stats2["failed"] == 1
-    assert stats2["win_rate"] == 50.0
-    assert stats2["average_score"] == 52.5
+    stats_day3 = service.get_global_stats()
+    assert stats_day3["total"] == 2
+    assert stats_day3["successful"] == 1
+    assert stats_day3["failed"] == 1
+    assert stats_day3["win_rate"] == 50.0
+    assert stats_day3["average_score"] == 52.5
 
 
 def test_create_accuracy_embed():

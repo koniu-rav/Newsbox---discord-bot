@@ -1,6 +1,6 @@
 """Briefings Cog - 8:00 AM macro briefing, 12:30 PM accuracy evaluation, and on-demand advisory."""
 
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 import discord
 from discord.ext import commands
@@ -35,12 +35,18 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
         self.gemini_service = GeminiService()
         self.accuracy_service = AccuracyService()
 
-    async def compile_and_send_macro_briefing(self, channel: discord.abc.Messageable) -> None:
-        """Fetch market data, calendar, news, generate AI advisory (FX Majors, DXY, DAX), and send Discord Embed."""
+    async def compile_and_send_macro_briefing(
+        self,
+        channel: discord.abc.Messageable,
+        is_scheduled: bool = False,
+    ) -> None:
+        """Fetch market data, calendar, news, generate AI advisory (FX Majors, DXY, DAX), and send Discord Embed.
+        Only the official 08:00 AM scheduled dispatch records baseline prices for future accuracy evaluation.
+        """
         try:
             date_str = datetime.utcnow().strftime("%A, %d.%m.%Y")
-            iso_date = datetime.utcnow().strftime("%Y-%m-%d")
-            logger.info("Generating morning macro briefing and FX/DAX advisory for %s...", date_str)
+            iso_date = date.today().strftime("%Y-%m-%d")
+            logger.info("Generating morning macro briefing (is_scheduled=%s) for %s...", is_scheduled, date_str)
 
             market_data = await self.market_service.fetch_market_snapshot()
             calendar_events = await self.calendar_service.fetch_todays_events()
@@ -52,12 +58,13 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 news_headlines=news_headlines,
             )
 
-            # Persist briefing for 12:30 PM accuracy evaluation
-            self.accuracy_service.save_briefing(
-                advisory_text=advisory_text,
-                market_snapshot=market_data,
-                briefing_date=iso_date,
-            )
+            # ONLY save to accuracy history if this is the official scheduled 08:00 AM briefing
+            if is_scheduled:
+                self.accuracy_service.save_official_morning_briefing(
+                    advisory_text=advisory_text,
+                    market_snapshot=market_data,
+                    briefing_date=iso_date,
+                )
 
             embed = create_trader_advisory_embed(
                 date_str=date_str,
@@ -77,50 +84,62 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             )
 
     async def compile_and_send_accuracy_report(self, channel: discord.abc.Messageable) -> None:
-        """Evaluate yesterday/latest briefing performance against live market prices and send report."""
+        """Evaluate yesterday's official 08:00 AM briefing against current market prices and send report.
+        Idempotent: If yesterday was already evaluated, displays the existing record without duplicating stats.
+        """
         try:
-            logger.info("Compiling daily 12:30 PM briefing accuracy and performance evaluation...")
-            pending = self.accuracy_service.get_latest_briefing_to_evaluate()
+            logger.info("Processing accuracy and performance evaluation (yesterday's briefing focus)...")
+            yesterday_pending = self.accuracy_service.get_yesterday_briefing_to_evaluate()
             current_market = await self.market_service.fetch_market_snapshot()
 
-            if not pending:
-                # If no pending briefing exists, fall back to last evaluated record or create synthetic baseline
-                last_eval = self.accuracy_service.get_last_evaluation()
-                if last_eval:
-                    global_stats = self.accuracy_service.get_global_stats()
-                    embed = create_accuracy_embed(last_eval, global_stats)
-                    await channel.send(embed=embed)
-                    return
+            if yesterday_pending:
+                # We have yesterday's unevaluated brief -> Run Gemini evaluation
+                eval_date = yesterday_pending.get("date", "Wczoraj")
+                start_snapshot = yesterday_pending.get("market_snapshot", {})
+                advisory = yesterday_pending.get("advisory_text", "")
 
-                # First run bootstrap
-                today_iso = datetime.utcnow().strftime("%Y-%m-%d")
-                pending = {
-                    "date": today_iso,
-                    "advisory_text": "Zalecenie: DAX Long na otwarciu, EUR/USD unikanie pozycji.",
-                    "market_snapshot": current_market,
-                }
+                eval_dict = await self.gemini_service.evaluate_briefing_performance(
+                    yesterday_advisory=advisory,
+                    start_prices=start_snapshot,
+                    current_prices=current_market,
+                )
 
-            eval_date = pending.get("date", "Wczoraj")
-            start_snapshot = pending.get("market_snapshot", {})
-            advisory = pending.get("advisory_text", "")
+                record = self.accuracy_service.record_evaluation(
+                    date_str=eval_date,
+                    score=eval_dict.get("score", 75),
+                    breakdown=eval_dict.get("breakdown", ""),
+                    conclusions=eval_dict.get("conclusions", ""),
+                )
 
-            eval_dict = await self.gemini_service.evaluate_briefing_performance(
-                yesterday_advisory=advisory,
-                start_prices=start_snapshot,
-                current_prices=current_market,
+                global_stats = self.accuracy_service.get_global_stats()
+                embed = create_accuracy_embed(record, global_stats)
+                await channel.send(embed=embed)
+                logger.info("Evaluated and sent new accuracy report for %s", eval_date)
+                return
+
+            # If no pending yesterday briefing, check if yesterday was already evaluated
+            last_eval = self.accuracy_service.get_last_evaluation()
+            if last_eval:
+                global_stats = self.accuracy_service.get_global_stats()
+                embed = create_accuracy_embed(last_eval, global_stats)
+                await channel.send(embed=embed)
+                logger.info("Sent existing accuracy report for %s (idempotent view)", last_eval.get("date"))
+                return
+
+            # Day 1 initial state: no previous days available yet
+            today_str = date.today().strftime("%Y-%m-%d")
+            embed = discord.Embed(
+                title="📊 Raport Skuteczności Briefingu (Inicjalizacja)",
+                description=(
+                    "ℹ️ **Trwa zbieranie danych dla pierwszego cyklu ewaluacji.**\n\n"
+                    f"• Dzisiejszy oficjalny brief z 08:00 (`{today_str}`) zostanie zweryfikowany **jutro o 12:30** po pełnej sesji giełdowej.\n"
+                    "• Zasady oceny: `0-25%` Nieudana | `25-75%` Neutralna | `75-100%` Udana."
+                ),
+                color=0x3498DB,
+                timestamp=datetime.utcnow(),
             )
-
-            record = self.accuracy_service.record_evaluation(
-                date_str=eval_date,
-                score=eval_dict.get("score", 75),
-                breakdown=eval_dict.get("breakdown", ""),
-                conclusions=eval_dict.get("conclusions", ""),
-            )
-
-            global_stats = self.accuracy_service.get_global_stats()
-            embed = create_accuracy_embed(record, global_stats)
+            embed.set_footer(text="Newsbox Accuracy Tracker • Gemini AI")
             await channel.send(embed=embed)
-            logger.info("Successfully sent accuracy report to channel %s", channel)
 
         except Exception as e:
             logger.error("Failed to compile accuracy report: %s", e, exc_info=True)
@@ -179,11 +198,12 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             if target_asset:
                 await self.compile_and_send_single_asset(ctx.channel, target_asset)
             else:
-                await self.compile_and_send_macro_briefing(ctx.channel)
+                # Manual invocation: is_scheduled=False
+                await self.compile_and_send_macro_briefing(ctx.channel, is_scheduled=False)
 
     @commands.command(name="accuracy", aliases=["skutecznosc", "stats", "wyniki", "counter"])
     async def accuracy_command(self, ctx: commands.Context) -> None:
-        """Sprawdź skuteczność zaleceń bota (globalny counter, wynik ostatniego briefu, wnioski)."""
+        """Sprawdź skuteczność wczorajszego briefu (globalny counter, wynik wczorajszego briefu, wnioski)."""
         async with ctx.typing():
             await self.compile_and_send_accuracy_report(ctx.channel)
 
