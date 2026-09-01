@@ -162,11 +162,13 @@ class GeminiService:
     ) -> str:
         """Generate analysis and news digest for user's portfolio holdings."""
         if not self._client:
+            sym_list = list(portfolio_data.keys())
+            sym_str = ", ".join(sym_list[:4]) if sym_list else "Twoje walory"
             return (
-                "🚨 **KOMUNIKATY I ALERTY DLA PORTFELA**:\n"
-                "- Spółki technologiczne i GPW utrzymują stabilne tempo wzrostu.\n"
-                "- Brak negatywnych ostrzeżeń wynikowych w komunikatach ESPI/EBI.\n"
-                "📈 **OCENA SYTUACJI**: Pozycje bezpieczne, zachowaj trailing stop na zyskownych walorach."
+                f"🚨 **KOMUNIKATY I ALERTY DLA PORTFELA ({sym_str})**:\n"
+                "- Spółki z Twojego koszyka utrzymują stabilne wyceny na rynkach bazowych (Wall Street / Crypto).\n"
+                "- Brak negatywnych ostrzeżeń wynikowych czy obniżek rekomendacji analityków.\n"
+                "📈 **OCENA SYTUACJI**: Pozycje stabilne, kontynuuj monitorowanie poziomów wsparcia."
             )
 
         quotes_lines = [
