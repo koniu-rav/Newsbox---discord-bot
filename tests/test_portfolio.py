@@ -39,3 +39,26 @@ def test_is_in_quiet_window():
     outside_open = datetime(2026, 9, 1, 11, 30, 0)
     assert service.is_in_quiet_window(outside_open) is False
 
+
+def test_state_manager(tmp_path):
+    """Test StateManager persistence."""
+    from newsbox.services.state_service import StateManager
+    state_file = tmp_path / "test_state.json"
+    mgr = StateManager(state_file=state_file)
+
+    # Set channel and portfolio
+    mgr.set_channel("crypto", 123456789)
+    assert mgr.get_channel("crypto") == 123456789
+
+    added = mgr.add_portfolio_ticker("NVDA")
+    assert "NVDA" in mgr.get_portfolio_tickers()
+
+    # Re-instantiate from same file to test persistence
+    mgr2 = StateManager(state_file=state_file)
+    assert mgr2.get_channel("crypto") == 123456789
+    assert "NVDA" in mgr2.get_portfolio_tickers()
+
+    # Remove
+    mgr2.remove_portfolio_ticker("NVDA")
+    assert "NVDA" not in mgr2.get_portfolio_tickers()
+

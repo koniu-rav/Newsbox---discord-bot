@@ -56,6 +56,8 @@ class NewsboxBot(commands.Bot):
     async def dispatch_scheduled_morning_routine(self) -> None:
         """Executed by scheduler to send daily reports to configured Discord channels."""
         logger.info("Triggering scheduled 8:00 AM morning routines...")
+        from newsbox.services.state_service import get_state_manager
+        state_mgr = get_state_manager()
 
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
         if not briefings_cog:
@@ -63,7 +65,7 @@ class NewsboxBot(commands.Bot):
             return
 
         # 1. Dispatch Macro Briefing + Trader Advisory
-        macro_ch_id = self.settings.macro_channel_id
+        macro_ch_id = state_mgr.get_channel("macro") or self.settings.macro_channel_id
         if macro_ch_id:
             channel = await self._resolve_channel(macro_ch_id)
             if channel:
@@ -72,7 +74,7 @@ class NewsboxBot(commands.Bot):
             logger.warning("No macro briefing channel configured.")
 
         # 2. Dispatch Economic Calendar (if dedicated channel is configured)
-        cal_ch_id = self.settings.discord_calendar_channel_id
+        cal_ch_id = state_mgr.get_channel("calendar") or self.settings.discord_calendar_channel_id
         if cal_ch_id:
             channel = await self._resolve_channel(cal_ch_id)
             if channel:

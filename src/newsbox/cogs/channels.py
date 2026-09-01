@@ -1,9 +1,10 @@
-"""Channels Cog - manages multi-channel routing for briefings, calendar, regional news, crypto, and portfolio."""
+"""Channels Cog - manages multi-channel routing with persistent disk storage."""
 
 from typing import Optional
 import discord
 from discord.ext import commands
 from newsbox.config import get_settings
+from newsbox.services.state_service import get_state_manager
 from newsbox.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -15,6 +16,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.settings = get_settings()
+        self.state_manager = get_state_manager()
 
     @commands.command(name="set_channel", aliases=["ustaw_kanal"])
     @commands.has_permissions(administrator=True)
@@ -24,7 +26,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
         channel_type: str,
         channel: Optional[discord.TextChannel] = None,
     ) -> None:
-        """Przypisz dany kanał Discord do wybranego typu powiadomień.
+        """Przypisz dany kanał Discord do wybranego typu powiadomień i zapisz trwale.
 
         Typy:
         - `macro` (lub `briefing`): Poranny raport 8:00 AM + FX/DAX Advisory
@@ -43,77 +45,101 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
 
         c_type = channel_type.lower().strip()
 
-        if c_type in ["macro", "briefing", "poranek"]:
-            self.settings.discord_macro_channel_id = target.id
-            self.settings.discord_briefing_channel_id = target.id
-            desc = "🌅 Poranny Raport Makro & FX/DAX Advisory (8:00)"
-        elif c_type in ["calendar", "kalendarz"]:
-            self.settings.discord_calendar_channel_id = target.id
-            desc = "📅 Kalendarz Ekonomiczny & Ryzyka Sesji"
-        elif c_type in ["news_pl", "pl", "polska", "gpw", "parkiet"]:
-            self.settings.discord_news_pl_channel_id = target.id
-            desc = "🇵🇱 Wiadomości z Polski & Parkiet GPW"
-        elif c_type in ["news_global", "global", "us", "usa", "swiat"]:
-            self.settings.discord_news_global_channel_id = target.id
-            desc = "🌐 Wiadomości Światowe & USA"
-        elif c_type in ["crypto", "krypto", "crypto-chat", "btc"]:
-            self.settings.discord_crypto_channel_id = target.id
-            desc = "🪙 Dedykowany Kanał Krypto (#crypto-chat)"
-        elif c_type in ["portfolio", "portfel", "spolki"]:
-            self.settings.discord_portfolio_channel_id = target.id
-            desc = "💼 Alerty & Wiadomości Spółek Portfelowych"
-        else:
+        type_descriptions = {
+            "macro": "🌅 Poranny Raport Makro & FX/DAX Advisory (8:00)",
+            "briefing": "🌅 Poranny Raport Makro & FX/DAX Advisory (8:00)",
+            "poranek": "🌅 Poranny Raport Makro & FX/DAX Advisory (8:00)",
+            "calendar": "📅 Kalendarz Ekonomiczny & Ryzyka Sesji",
+            "kalendarz": "📅 Kalendarz Ekonomiczny & Ryzyka Sesji",
+            "news_pl": "🇵🇱 Wiadomości z Polski & Parkiet GPW",
+            "pl": "🇵🇱 Wiadomości z Polski & Parkiet GPW",
+            "polska": "🇵🇱 Wiadomości z Polski & Parkiet GPW",
+            "gpw": "🇵🇱 Wiadomości z Polski & Parkiet GPW",
+            "parkiet": "🇵🇱 Wiadomości z Polski & Parkiet GPW",
+            "news_global": "🌐 Wiadomości Światowe & USA",
+            "global": "🌐 Wiadomości Światowe & USA",
+            "us": "🌐 Wiadomości Światowe & USA",
+            "usa": "🌐 Wiadomości Światowe & USA",
+            "swiat": "🌐 Wiadomości Światowe & USA",
+            "crypto": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
+            "krypto": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
+            "crypto-chat": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
+            "btc": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
+            "portfolio": "💼 Alerty & Wiadomości Spółek Portfelowych",
+            "portfel": "💼 Alerty & Wiadomości Spółek Portfelowych",
+            "spolki": "💼 Alerty & Wiadomości Spółek Portfelowych",
+        }
+
+        if c_type not in type_descriptions:
             await ctx.send(
                 "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`."
             )
             return
 
-        await ctx.send(f"✅ Kanał {target.mention} został przypisany dla: **{desc}**.")
-        logger.info("Routing updated: %s -> #%s (%s)", c_type, target.name, target.id)
+        # Canonical key
+        canonical_key = "macro"
+        if c_type in ["calendar", "kalendarz"]:
+            canonical_key = "calendar"
+        elif c_type in ["news_pl", "pl", "polska", "gpw", "parkiet"]:
+            canonical_key = "news_pl"
+        elif c_type in ["news_global", "global", "us", "usa", "swiat"]:
+            canonical_key = "news_global"
+        elif c_type in ["crypto", "krypto", "crypto-chat", "btc"]:
+            canonical_key = "crypto"
+        elif c_type in ["portfolio", "portfel", "spolki"]:
+            canonical_key = "portfolio"
+
+        self.state_manager.set_channel(canonical_key, target.id)
+        desc = type_descriptions[c_type]
+
+        await ctx.send(f"✅ Kanał {target.mention} został przypisany i **trwale zapisany** dla: **{desc}**.")
+        logger.info("Routing updated & persisted: %s -> #%s (%s)", canonical_key, target.name, target.id)
 
     @commands.command(name="channels", aliases=["kanaly"])
     async def list_channels(self, ctx: commands.Context) -> None:
         """Pokaż aktualne przypisanie kanałów Discord."""
         embed = discord.Embed(
-            title="📡 Konfiguracja Kanałów Powiadomień",
+            title="📡 Konfiguracja Kanałów Powiadomień (Trwały Zapis)",
             color=0x3498DB,
         )
+
+        channels = self.state_manager.get_all_channels()
 
         def ch_mention(ch_id: Optional[int]) -> str:
             return f"<#{ch_id}>" if ch_id else "*Brak (nieustawiony)*"
 
         embed.add_field(
             name="🌅 Raport Makro (8:00 AM)",
-            value=ch_mention(self.settings.macro_channel_id),
+            value=ch_mention(channels.get("macro") or self.settings.macro_channel_id),
             inline=False,
         )
         embed.add_field(
             name="📅 Kalendarz Ekonomiczny",
-            value=ch_mention(self.settings.discord_calendar_channel_id),
+            value=ch_mention(channels.get("calendar")),
             inline=False,
         )
         embed.add_field(
             name="🇵🇱 Newsy Polska / GPW",
-            value=ch_mention(self.settings.discord_news_pl_channel_id),
+            value=ch_mention(channels.get("news_pl")),
             inline=False,
         )
         embed.add_field(
             name="🌐 Newsy Globalne & USA",
-            value=ch_mention(self.settings.discord_news_global_channel_id),
+            value=ch_mention(channels.get("news_global")),
             inline=False,
         )
         embed.add_field(
             name="🪙 Krypto (#crypto-chat)",
-            value=ch_mention(self.settings.discord_crypto_channel_id),
+            value=ch_mention(channels.get("crypto")),
             inline=False,
         )
         embed.add_field(
             name="💼 Portfel Spółek",
-            value=ch_mention(self.settings.discord_portfolio_channel_id),
+            value=ch_mention(channels.get("portfolio")),
             inline=False,
         )
 
-        embed.set_footer(text="Użyj !set_channel <typ> #kanal aby zmienić przypisanie.")
+        embed.set_footer(text="Użyj !set_channel <typ> #kanal aby zmienić przypisanie (zapis do data/state.json).")
         await ctx.send(embed=embed)
 
 

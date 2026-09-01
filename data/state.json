@@ -1,0 +1,17 @@
+{
+  "channels": {
+    "macro": 1542238748413132971,
+    "calendar": null,
+    "news_pl": null,
+    "news_global": null,
+    "crypto": null,
+    "portfolio": null
+  },
+  "portfolio_tickers": [
+    "CDR.WA",
+    "PKN.WA",
+    "NVDA",
+    "TSLA",
+    "AAPL"
+  ]
+}
