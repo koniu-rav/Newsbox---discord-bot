@@ -115,6 +115,7 @@ try:
         # Schedule Configuration
         calendar_time: str = Field(default="07:00", alias="CALENDAR_TIME")
         briefing_time: str = Field(default="08:00", alias="BRIEFING_TIME")
+        accuracy_time: str = Field(default="12:30", alias="ACCURACY_TIME")
         briefing_timezone: str = Field(default="Europe/Warsaw", alias="BRIEFING_TIMEZONE")
 
         # News Stream & Polling Settings
@@ -206,6 +207,7 @@ except ImportError:
             # Schedule
             self.calendar_time: str = os.getenv("CALENDAR_TIME", "07:00")
             self.briefing_time: str = os.getenv("BRIEFING_TIME", "08:00")
+            self.accuracy_time: str = os.getenv("ACCURACY_TIME", "12:30")
             self.briefing_timezone: str = os.getenv("BRIEFING_TIMEZONE", "Europe/Warsaw")
 
             # News stream

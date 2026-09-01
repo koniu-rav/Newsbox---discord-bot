@@ -79,6 +79,37 @@ class SchedulerService:
             self.settings.briefing_timezone,
         )
 
+    def schedule_daily_accuracy(
+        self,
+        accuracy_job: Callable[[], Coroutine[Any, Any, None]],
+        time_str: Optional[str] = None,
+    ) -> None:
+        """Register daily accuracy & performance evaluation job (default 12:30)."""
+        target_time = time_str or self.settings.accuracy_time
+        time_parts = target_time.split(":")
+        hour = int(time_parts[0]) if len(time_parts) > 0 else 12
+        minute = int(time_parts[1]) if len(time_parts) > 1 else 30
+
+        trigger = CronTrigger(
+            hour=hour,
+            minute=minute,
+            timezone=self.settings.briefing_timezone,
+        )
+
+        self.scheduler.add_job(
+            accuracy_job,
+            trigger=trigger,
+            id="daily_accuracy_evaluation",
+            name="Daily 12:30 PM Accuracy Evaluation",
+            replace_existing=True,
+        )
+        logger.info(
+            "Scheduled daily accuracy evaluation for %02d:%02d (%s)",
+            hour,
+            minute,
+            self.settings.briefing_timezone,
+        )
+
     def start(self) -> None:
         """Start the scheduler background loop."""
         if not self._is_running:

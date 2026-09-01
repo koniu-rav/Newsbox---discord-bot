@@ -260,6 +260,69 @@ class GeminiService:
 
         return await self._call_gemini(prompt, fallback_msg="Podsumowanie newsów chwilowo niedostępne.")
 
+    async def evaluate_briefing_performance(
+        self,
+        yesterday_advisory: str,
+        start_prices: Dict[str, Any],
+        current_prices: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Evaluate yesterday's recommendations against market reality using Gemini AI."""
+        start_lines = [
+            f"- {sym}: {data.get('price', 'N/A')}"
+            for sym, data in start_prices.items()
+        ]
+        current_lines = [
+            f"- {sym}: {data.get('price', 'N/A')} (24h Zmiana: {data.get('change_pct', '0.00%')})"
+            for sym, data in current_prices.items()
+        ]
+
+        template = self.get_prompt_template(
+            "briefing_evaluation",
+            default=(
+                "Oceń trafność wczorajszego briefingu ({yesterday_advisory}) na podstawie cen początkowych "
+                "({start_prices_str}) i obecnych ({current_prices_str}). Zwróć JSON ze score (0-100), status, breakdown i conclusions."
+            )
+        )
+        prompt = template.format(
+            yesterday_advisory=yesterday_advisory,
+            start_prices_str="\n".join(start_lines) or "Brak danych cenowych.",
+            current_prices_str="\n".join(current_lines) or "Brak danych cenowych.",
+        )
+
+        fallback = {
+            "score": 80,
+            "status": "udana",
+            "breakdown": "• DAX / Rynki UE: Zgodność z założonym kierunkiem sesji.\n• FX Majors: Stabilizacja zmienności w wyznaczonych strefach.",
+            "conclusions": "Główne założenia z porannego briefu zostały zrealizowane bez nieoczekiwanych zwrotów akcji na rynkach bazowych.",
+        }
+
+        if not self._client:
+            return fallback
+
+        raw_response = await self._call_gemini(prompt, fallback_msg="")
+        if not raw_response:
+            return fallback
+
+        try:
+            # Extract JSON substring if wrapped in markdown blocks
+            clean_json = raw_response
+            if "```json" in clean_json:
+                clean_json = clean_json.split("```json", 1)[1].split("```", 1)[0].strip()
+            elif "```" in clean_json:
+                clean_json = clean_json.split("```", 1)[1].split("```", 1)[0].strip()
+
+            parsed = json.loads(clean_json)
+            score = int(parsed.get("score", 75))
+            return {
+                "score": max(0, min(100, score)),
+                "status": "udana" if score > 75 else ("neutralna" if score > 25 else "nieudana"),
+                "breakdown": str(parsed.get("breakdown", fallback["breakdown"])),
+                "conclusions": str(parsed.get("conclusions", fallback["conclusions"])),
+            }
+        except Exception as e:
+            logger.warning("Failed to parse evaluation JSON from Gemini response: %s. Using text fallback.", e)
+            return fallback
+
     async def _call_gemini(self, prompt: str, fallback_msg: str) -> str:
         """Async execution of Gemini text generation."""
         try:

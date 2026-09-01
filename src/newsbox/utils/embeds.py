@@ -263,3 +263,76 @@ def create_error_embed(title: str, description: str) -> discord.Embed:
     )
     embed.set_footer(text="Newsbox Error Notification")
     return embed
+
+
+def create_accuracy_embed(
+    evaluation_result: Dict[str, Any],
+    global_stats: Dict[str, Any],
+) -> discord.Embed:
+    """Build the 12:30 PM Accuracy & Performance Tracker embed."""
+    score = evaluation_result.get("score", 0)
+    status = evaluation_result.get("status", "neutralna")
+    eval_date = evaluation_result.get("date", "Wczoraj")
+    breakdown = evaluation_result.get("breakdown", "")
+    conclusions = evaluation_result.get("conclusions", "")
+
+    # Status badges and color
+    if score > 75:
+        badge = "🎯 **Analiza udana**"
+        color = 0x2ECC71  # Emerald Green
+    elif score > 25:
+        badge = "⚖️ **Analiza neutralna**"
+        color = 0xF39C12  # Amber/Yellow
+    else:
+        badge = "❌ **Analiza nieudana**"
+        color = 0xE74C3C  # Crimson Red
+
+    embed = discord.Embed(
+        title=f"📊 Raport Skuteczności Briefingu (Ewaluacja 12:30)",
+        color=color,
+        timestamp=datetime.utcnow(),
+    )
+
+    # 1. Globalny Counter
+    total = global_stats.get("total", 0)
+    successful = global_stats.get("successful", 0)
+    neutral = global_stats.get("neutral", 0)
+    failed = global_stats.get("failed", 0)
+    avg_score = global_stats.get("average_score", 0.0)
+    win_rate = global_stats.get("win_rate", 0.0)
+
+    counter_value = (
+        f"• **Skuteczność (Win-Rate)**: `{win_rate}%` (Średnia: `{avg_score}/100`)\n"
+        f"• **Łącznie analiz**: `{total}`\n"
+        f"• **Rozkład**: 🎯 Udane: `{successful}` | ⚖️ Neutralne: `{neutral}` | ❌ Nieudane: `{failed}`"
+    )
+    embed.add_field(
+        name="🏆 Globalny Counter Skuteczności",
+        value=counter_value,
+        inline=False,
+    )
+
+    # 2. Wynik wczorajszego briefu
+    eval_value = (
+        f"• **Data analizy**: `{eval_date}`\n"
+        f"• **Wynik punktowy**: `{score}/100` ({badge})\n"
+        f"• **Rozbicie na rynki**:\n{breakdown}"
+    )
+    embed.add_field(
+        name="📅 Wynik Ostatniego Briefu",
+        value=truncate(eval_value, MAX_FIELD_LENGTH),
+        inline=False,
+    )
+
+    # 3. Wnioski
+    if conclusions:
+        embed.add_field(
+            name="💡 Wnioski i Lekcje Rynkowe",
+            value=truncate(conclusions, MAX_FIELD_LENGTH),
+            inline=False,
+        )
+
+    embed.set_footer(
+        text="Newsbox Quantitative Performance Tracker • Gemini AI",
+    )
+    return embed

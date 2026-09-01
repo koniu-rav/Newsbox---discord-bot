@@ -33,14 +33,12 @@
 - Agregacja z najważniejszych serwisów krypto: CoinDesk, Cointelegraph, Decrypt.
 - Komendy: `!news crypto` lub `!crypto`.
 
-### 5. Multi-Channel Routing na Discordzie
-- Osobne kanały dla poszczególnych rodzajów raportów:
-  - `macro`: Briefing poranny i FX/DAX Advisory o 8:00.
-  - `calendar`: Kalendarz publikacji makroekonomicznych.
-  - `news_pl`: Newsy z Polski, GPW i Parkietu.
-  - `news_global`: Newsy z USA, Wall Street i rynków światowych.
-  - `crypto`: Kanał krypto (`#crypto-chat`).
-  - `portfolio`: Wiadomości dla spółek z Twojego portfela.
+### 5. Moduł Skuteczności i Ewaluacji AI (12:30)
+- Codziennie o **12:30** (oraz komendą `!accuracy` / `!skutecznosc`) bot weryfikuje trafność zaleceń z porannego briefu w oparciu o rzeczywiste zmiany cenowe:
+  - **0 – 25%**: ❌ **Analiza nieudana**
+  - **25 – 75%**: ⚖️ **Analiza neutralna**
+  - **75 – 100%**: 🎯 **Analiza udana**
+- Raport zawiera: **Globalny counter** (łączny win-rate, rozkład udanych/neutralnych/nieudanych), **wynik ostatniego briefu** oraz **wnioski i lekcje rynkowe AI**.
 
 ---
 
@@ -50,6 +48,7 @@
 | :--- | :--- | :--- |
 | `!briefing` / `!poranek` | Wszyscy | Pełny poranny raport makro (FX Majors, DXY, DAX, plan sesji). |
 | `!briefing <walor>` | Wszyscy | Dedykowana analiza dla 1 wybranego waloru (np. `!briefing DAX`, `!briefing BTC`). |
+| `!accuracy` / `!skutecznosc` | Wszyscy | Raport skuteczności: globalny counter, punktacja briefu i wnioski AI. |
 | `!portfolio` / `!portfel` | Wszyscy | Wyświetla podgląd Twoich spółek, notowania i podsumowanie AI. |
 | `!portfolio add <symbol>` | Wszyscy | Dodaje spółkę do portfela (np. `!portfolio add CDR.WA`, `!portfolio add NVDA`). |
 | `!portfolio remove <symbol>`| Wszyscy | Usuwa spółkę z portfela (np. `!portfolio remove TSLA`). |
@@ -60,7 +59,7 @@
 | `!news us` / `!news usa` | Wszyscy | Wiadomości z USA i Wall Street (CNBC, MarketWatch). |
 | `!news crypto` / `!crypto` | Wszyscy | Najświeższe wiadomości ze świata kryptowalut i Web3. |
 | `!news global` | Wszyscy | Rynki globalne, surowce i makro (Reuters, Euronews). |
-| `!set_channel <typ>` | Admin | Przypisuje kanał (`macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`). |
+| `!set_channel <typ>` | Admin | Przypisuje kanał (`macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`, `portfolio_news`). |
 | `!channels` | Wszyscy | Wyświetla mapowanie kanałów powiadomień. |
 | `!reload_prompts` | Admin | Przeładowuje szablony promptów z folderu `prompts/` w locie. |
 | `!status` | Wszyscy | Wyświetla stan techniczny i konfigurację bota. |

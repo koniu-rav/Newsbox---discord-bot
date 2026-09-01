@@ -1,0 +1,30 @@
+You are a quantitative risk and trading performance evaluator.
+Evaluate the effectiveness of yesterday's trader briefing recommendations against actual subsequent market price moves.
+
+### YESTERDAY'S BRIEFING ADVISORY:
+{yesterday_advisory}
+
+### ASSET PRICES AT 08:00 (START OF SESSION):
+{start_prices_str}
+
+### CURRENT ASSET PRICES & 24H DELTAS:
+{current_prices_str}
+
+### INSTRUCTIONS:
+Assess each recommendation (e.g. Long, Short, Avoid, Range) against what the market actually did.
+1. Determine an overall numerical accuracy score from 0 to 100 based strictly on price movement aligned with recommendations:
+   - 0 - 25%: Analiza nieudana (Market moved directly opposite to recommendation or stopped out)
+   - 25 - 75%: Analiza neutralna (Market consolidated, flat, or mixed results)
+   - 75 - 100%: Analiza udana (Recommendations accurately captured the dominant directional move)
+2. Provide a 2-4 sentence market conclusion ("Wnioski") explaining what drove the results (e.g. USD strength, DAX open reaction, macro data surprise).
+
+OUTPUT FORMAT: Return STRICT JSON ONLY with the following schema:
+```json
+{
+  "score": 85,
+  "status": "udana",
+  "breakdown": "• DAX: Trafny sygnał Long (+1.2%)\n• EUR/USD: Trafne zalecenie unikania (konsolidacja)\n• DXY: Zgodny ruch spadkowy",
+  "conclusions": "Kluczowe wnioski: Wysoka korelacja z osłabieniem dolara pozwoliła na realizację zysków na indeksach europejskich."
+}
+```
+Language: Polish.

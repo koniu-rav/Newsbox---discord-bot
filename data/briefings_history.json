@@ -1,0 +1,11 @@
+{
+  "pending_briefings": {},
+  "evaluations": [],
+  "stats": {
+    "total": 0,
+    "successful": 0,
+    "neutral": 0,
+    "failed": 0,
+    "average_score": 0.0
+  }
+}

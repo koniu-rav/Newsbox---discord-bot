@@ -15,7 +15,7 @@ logger = setup_logger(__name__)
 
 
 class NewsboxBot(commands.Bot):
-    """Newsbox Discord bot orchestrating scheduled briefings, calendar dispatches, and commands."""
+    """Newsbox Discord bot orchestrating scheduled briefings, calendar dispatches, and accuracy evaluations."""
 
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -45,6 +45,9 @@ class NewsboxBot(commands.Bot):
 
         # 2. Schedule 8:00 AM Macro & FX/DAX Briefing
         self.scheduler.schedule_daily_briefing(self.dispatch_scheduled_macro_briefing)
+
+        # 3. Schedule 12:30 PM Accuracy & Performance Evaluation
+        self.scheduler.schedule_daily_accuracy(self.dispatch_scheduled_accuracy)
 
         self.scheduler.start()
 
@@ -94,6 +97,22 @@ class NewsboxBot(commands.Bot):
                 await briefings_cog.compile_and_send_macro_briefing(channel)
         else:
             logger.warning("No channel configured for 8:00 AM macro briefing dispatch.")
+
+    async def dispatch_scheduled_accuracy(self) -> None:
+        """Executed automatically at 12:30 PM to evaluate briefing accuracy and send performance report."""
+        logger.info("Triggering scheduled 12:30 PM accuracy evaluation dispatch...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            logger.error("BriefingsCog not found during scheduled accuracy dispatch.")
+            return
+
+        target_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
+        if target_ch_id:
+            channel = await self._resolve_channel(target_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_accuracy_report(channel)
+        else:
+            logger.warning("No channel configured for 12:30 PM accuracy dispatch.")
 
     async def _resolve_channel(self, channel_id: int) -> Optional[discord.abc.Messageable]:
         """Fetch or get channel by ID."""

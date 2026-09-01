@@ -6,6 +6,7 @@ from newsbox.services.calendar_service import CalendarService
 from newsbox.services.news_service import NewsService
 from newsbox.services.scheduler_service import SchedulerService
 from newsbox.services.state_service import StateManager, get_state_manager
+from newsbox.services.accuracy_service import AccuracyService
 
 __all__ = [
     "GeminiService",
@@ -15,4 +16,5 @@ __all__ = [
     "SchedulerService",
     "StateManager",
     "get_state_manager",
+    "AccuracyService",
 ]
