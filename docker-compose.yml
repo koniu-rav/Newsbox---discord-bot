@@ -11,6 +11,9 @@ services:
       - .env
     environment:
       - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=production
     volumes:
+      # Persistent storage: survive restarts, container recreations, and updates
+      - ./data:/app/data
+      - ./prompts:/app/prompts
       - ./logs:/app/logs
-
