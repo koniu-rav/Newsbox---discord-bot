@@ -1,17 +1,19 @@
 {
   "channels": {
-    "macro": 1542238748413132971,
-    "calendar": null,
-    "news_pl": null,
-    "news_global": null,
-    "crypto": null,
-    "portfolio": null
+    "macro": 1542428259323609088,
+    "calendar": 1542238748413132971,
+    "news_pl": 1542238748413132971,
+    "news_global": 1542238748413132971,
+    "crypto": 1542238748413132971,
+    "portfolio": 1542252138942570506,
+    "portfolio_news": 1544262150455955516
   },
   "portfolio_tickers": [
-    "CDR.WA",
-    "PKN.WA",
-    "NVDA",
-    "TSLA",
-    "AAPL"
+    "EPAM",
+    "ETH-USD",
+    "MCD",
+    "ORCL",
+    "TMDX",
+    "DIS"
   ]
 }

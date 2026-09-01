@@ -10,6 +10,21 @@ from newsbox.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
+def resolve_ticker(symbol: str) -> str:
+    """Normalize user input symbols like 'MCD.US', 'ORCL,US', 'ETH' into Yahoo Finance format."""
+    s = symbol.strip().upper()
+    for suffix in [".US", ",US"]:
+        if s.endswith(suffix):
+            return s[:-len(suffix)]
+    if s in ["ETH", "ETHEREUM"]:
+        return "ETH-USD"
+    if s in ["BTC", "BITCOIN"]:
+        return "BTC-USD"
+    if s in ["SOL", "SOLANA"]:
+        return "SOL-USD"
+    return s
+
+
 class MarketService:
     """Service to fetch real-time quotes, 24h performance, and portfolio ticker data."""
 
@@ -34,7 +49,7 @@ class MarketService:
         """Fetch real-time data for a single asset (e.g. DAX, BTC, TSLA, CDR.WA)."""
         symbol_upper = symbol_or_ticker.strip().upper()
         # Resolve mapped ticker if available
-        resolved_ticker = self.tickers.get(symbol_upper, symbol_or_ticker.strip())
+        resolved_ticker = self.tickers.get(symbol_upper, resolve_ticker(symbol_or_ticker))
 
         try:
             res_dict = await asyncio.to_thread(
@@ -52,7 +67,7 @@ class MarketService:
     ) -> Dict[str, Dict[str, Any]]:
         """Fetch quotes for all tickers in user's portfolio watchlist."""
         target_symbols = symbols or self.settings.portfolio_tickers
-        ticker_mapping = {s: s for s in target_symbols}
+        ticker_mapping = {s: resolve_ticker(s) for s in target_symbols}
         try:
             return await asyncio.to_thread(self._fetch_sync_quotes, ticker_mapping)
         except Exception as e:

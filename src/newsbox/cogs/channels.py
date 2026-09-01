@@ -65,14 +65,16 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             "krypto": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
             "crypto-chat": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
             "btc": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
-            "portfolio": "💼 Alerty & Wiadomości Spółek Portfelowych",
-            "portfel": "💼 Alerty & Wiadomości Spółek Portfelowych",
-            "spolki": "💼 Alerty & Wiadomości Spółek Portfelowych",
+            "portfolio": "💼 Alerty & Podgląd Portfela",
+            "portfel": "💼 Alerty & Podgląd Portfela",
+            "spolki": "💼 Alerty & Podgląd Portfela",
+            "portfolio_news": "📰 Wiadomości i Komunikaty Spółek z Portfela",
+            "portfel_news": "📰 Wiadomości i Komunikaty Spółek z Portfela",
         }
 
         if c_type not in type_descriptions:
             await ctx.send(
-                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`."
+                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`, `portfolio_news`."
             )
             return
 
@@ -88,6 +90,8 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             canonical_key = "crypto"
         elif c_type in ["portfolio", "portfel", "spolki"]:
             canonical_key = "portfolio"
+        elif c_type in ["portfolio_news", "portfel_news"]:
+            canonical_key = "portfolio_news"
 
         self.state_manager.set_channel(canonical_key, target.id)
         desc = type_descriptions[c_type]
@@ -134,8 +138,13 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             inline=False,
         )
         embed.add_field(
-            name="💼 Portfel Spółek",
+            name="💼 Podgląd Portfela",
             value=ch_mention(channels.get("portfolio")),
+            inline=False,
+        )
+        embed.add_field(
+            name="📰 Newsy dla Spółek Portfela",
+            value=ch_mention(channels.get("portfolio_news")),
             inline=False,
         )
 
