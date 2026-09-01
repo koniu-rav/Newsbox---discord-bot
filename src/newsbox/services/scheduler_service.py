@@ -1,7 +1,6 @@
-"""Scheduler service to manage timed briefing dispatches at 8:00 AM."""
+"""Scheduler service to manage timed automated dispatches (7:00 AM Calendar, 8:00 AM Briefing)."""
 
-import asyncio
-from typing import Callable, Coroutine, Any
+from typing import Callable, Coroutine, Any, Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from newsbox.config import get_settings
@@ -18,9 +17,45 @@ class SchedulerService:
         self.scheduler = AsyncIOScheduler()
         self._is_running = False
 
-    def schedule_daily_briefing(self, briefing_job: Callable[[], Coroutine[Any, Any, None]]) -> None:
-        """Register daily briefing job based on configured time (default 08:00)."""
-        time_parts = self.settings.briefing_time.split(":")
+    def schedule_daily_calendar(
+        self,
+        calendar_job: Callable[[], Coroutine[Any, Any, None]],
+        time_str: Optional[str] = None,
+    ) -> None:
+        """Register daily economic calendar job (default 07:00)."""
+        target_time = time_str or self.settings.calendar_time
+        time_parts = target_time.split(":")
+        hour = int(time_parts[0]) if len(time_parts) > 0 else 7
+        minute = int(time_parts[1]) if len(time_parts) > 1 else 0
+
+        trigger = CronTrigger(
+            hour=hour,
+            minute=minute,
+            timezone=self.settings.briefing_timezone,
+        )
+
+        self.scheduler.add_job(
+            calendar_job,
+            trigger=trigger,
+            id="daily_economic_calendar",
+            name="Daily 7:00 AM Economic Calendar",
+            replace_existing=True,
+        )
+        logger.info(
+            "Scheduled daily economic calendar for %02d:%02d (%s)",
+            hour,
+            minute,
+            self.settings.briefing_timezone,
+        )
+
+    def schedule_daily_briefing(
+        self,
+        briefing_job: Callable[[], Coroutine[Any, Any, None]],
+        time_str: Optional[str] = None,
+    ) -> None:
+        """Register daily macro briefing job (default 08:00)."""
+        target_time = time_str or self.settings.briefing_time
+        time_parts = target_time.split(":")
         hour = int(time_parts[0]) if len(time_parts) > 0 else 8
         minute = int(time_parts[1]) if len(time_parts) > 1 else 0
 
@@ -57,4 +92,3 @@ class SchedulerService:
             self.scheduler.shutdown()
             self._is_running = False
             logger.info("Scheduler service stopped.")
-

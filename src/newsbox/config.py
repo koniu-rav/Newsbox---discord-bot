@@ -113,6 +113,7 @@ try:
         session_quiet_windows: str = Field(default=DEFAULT_QUIET_WINDOWS, alias="SESSION_QUIET_WINDOWS")
 
         # Schedule Configuration
+        calendar_time: str = Field(default="07:00", alias="CALENDAR_TIME")
         briefing_time: str = Field(default="08:00", alias="BRIEFING_TIME")
         briefing_timezone: str = Field(default="Europe/Warsaw", alias="BRIEFING_TIMEZONE")
 
@@ -203,6 +204,7 @@ except ImportError:
             self.session_quiet_windows: str = os.getenv("SESSION_QUIET_WINDOWS", DEFAULT_QUIET_WINDOWS)
 
             # Schedule
+            self.calendar_time: str = os.getenv("CALENDAR_TIME", "07:00")
             self.briefing_time: str = os.getenv("BRIEFING_TIME", "08:00")
             self.briefing_timezone: str = os.getenv("BRIEFING_TIMEZONE", "Europe/Warsaw")
 

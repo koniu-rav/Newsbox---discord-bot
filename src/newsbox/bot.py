@@ -1,6 +1,4 @@
-"""Main Newsbox Discord Bot implementation with multi-channel dispatch."""
-
-from __future__ import annotations
+"""Main Discord bot client class for Newsbox."""
 
 import asyncio
 from typing import Optional
@@ -10,29 +8,31 @@ from discord.ext import commands
 from newsbox.cogs import COGS
 from newsbox.config import get_settings
 from newsbox.services.scheduler_service import SchedulerService
+from newsbox.services.state_service import get_state_manager
 from newsbox.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
 class NewsboxBot(commands.Bot):
-    """Core Discord bot class for Newsbox."""
+    """Newsbox Discord bot orchestrating scheduled briefings, calendar dispatches, and commands."""
 
     def __init__(self) -> None:
         self.settings = get_settings()
+        self.state_manager = get_state_manager()
         intents = discord.Intents.default()
         intents.message_content = True
-        intents.guilds = True
 
         super().__init__(
             command_prefix=self.settings.discord_command_prefix,
             intents=intents,
             help_command=commands.DefaultHelpCommand(),
         )
+
         self.scheduler = SchedulerService()
 
     async def setup_hook(self) -> None:
-        """Initialize extensions and background scheduler on bot setup."""
+        """Executed during bot startup to load cogs and start automated schedule."""
         for extension in COGS:
             try:
                 await self.load_extension(extension)
@@ -40,8 +40,12 @@ class NewsboxBot(commands.Bot):
             except Exception as e:
                 logger.error("Failed to load extension %s: %s", extension, e, exc_info=True)
 
-        # Schedule 8:00 AM daily briefing
-        self.scheduler.schedule_daily_briefing(self.dispatch_scheduled_morning_routine)
+        # 1. Schedule 7:00 AM Economic Calendar
+        self.scheduler.schedule_daily_calendar(self.dispatch_scheduled_calendar)
+
+        # 2. Schedule 8:00 AM Macro & FX/DAX Briefing
+        self.scheduler.schedule_daily_briefing(self.dispatch_scheduled_macro_briefing)
+
         self.scheduler.start()
 
     async def on_ready(self) -> None:
@@ -53,32 +57,43 @@ class NewsboxBot(commands.Bot):
         )
         await self.change_presence(activity=activity)
 
-    async def dispatch_scheduled_morning_routine(self) -> None:
-        """Executed by scheduler to send daily reports to configured Discord channels."""
-        logger.info("Triggering scheduled 8:00 AM morning routines...")
-        from newsbox.services.state_service import get_state_manager
-        state_mgr = get_state_manager()
-
+    async def dispatch_scheduled_calendar(self) -> None:
+        """Executed automatically at 7:00 AM to dispatch Economic Calendar to designated channel."""
+        logger.info("Triggering scheduled 7:00 AM economic calendar dispatch...")
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
         if not briefings_cog:
-            logger.error("BriefingsCog not found during scheduled dispatch.")
+            logger.error("BriefingsCog not found during scheduled calendar dispatch.")
             return
 
-        # 1. Dispatch Macro Briefing + Trader Advisory
-        macro_ch_id = state_mgr.get_channel("macro") or self.settings.macro_channel_id
+        cal_ch_id = (
+            self.state_manager.get_channel("calendar")
+            or self.settings.discord_calendar_channel_id
+            or self.state_manager.get_channel("macro")
+            or self.settings.macro_channel_id
+        )
+
+        if cal_ch_id:
+            channel = await self._resolve_channel(cal_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_calendar_briefing(channel)
+        else:
+            logger.warning("No channel configured for 7:00 AM calendar dispatch.")
+
+    async def dispatch_scheduled_macro_briefing(self) -> None:
+        """Executed automatically at 8:00 AM to dispatch morning macro report to designated channel."""
+        logger.info("Triggering scheduled 8:00 AM macro briefing dispatch...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            logger.error("BriefingsCog not found during scheduled macro dispatch.")
+            return
+
+        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
         if macro_ch_id:
             channel = await self._resolve_channel(macro_ch_id)
             if channel:
                 await briefings_cog.compile_and_send_macro_briefing(channel)
         else:
-            logger.warning("No macro briefing channel configured.")
-
-        # 2. Dispatch Economic Calendar (if dedicated channel is configured)
-        cal_ch_id = state_mgr.get_channel("calendar") or self.settings.discord_calendar_channel_id
-        if cal_ch_id:
-            channel = await self._resolve_channel(cal_ch_id)
-            if channel:
-                await briefings_cog.compile_and_send_calendar_briefing(channel)
+            logger.warning("No channel configured for 8:00 AM macro briefing dispatch.")
 
     async def _resolve_channel(self, channel_id: int) -> Optional[discord.abc.Messageable]:
         """Fetch or get channel by ID."""
