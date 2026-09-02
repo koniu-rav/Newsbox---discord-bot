@@ -398,7 +398,7 @@ class GeminiService:
             elif "```" in clean_json:
                 clean_json = clean_json.split("```", 1)[1].split("```", 1)[0].strip()
 
-            parsed = json.loads(clean_json)
+            parsed = json.loads(clean_json, strict=False)
             importance = str(parsed.get("importance", "MEDIUM")).upper().strip()
             if importance == "LOW":
                 return None
@@ -417,12 +417,17 @@ class GeminiService:
                 "summary": str(summary).strip(),
             }
         except Exception as e:
-            logger.warning("Failed to parse JSON from flash news Gemini response: %s. Using text analysis.", e)
-            if "📰" in raw_response and "🎯" in raw_response:
+            logger.warning("Failed to parse JSON from flash news Gemini response: %s. Using text fallback.", e)
+            if "📰" in raw_response:
+                sub_text = raw_response[raw_response.index("📰"):]
+                for stop_tok in ['",\n', '"\n}', '"}', "```"]:
+                    if stop_tok in sub_text:
+                        sub_text = sub_text.split(stop_tok)[0]
+                cleaned_summary = sub_text.replace('\\n', '\n').replace('\\"', '"').rstrip('"').strip()
                 return {
                     "importance": "HIGH" if ("🚨" in raw_response or "PILNE" in raw_response) else "MEDIUM",
                     "header": "🚨 PILNE: Istotne doniesienie rynkowe" if ("🚨" in raw_response or "PILNE" in raw_response) else None,
-                    "summary": raw_response.strip(),
+                    "summary": cleaned_summary,
                 }
             return default_fallback
 
