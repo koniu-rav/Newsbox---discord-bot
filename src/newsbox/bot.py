@@ -98,8 +98,8 @@ class NewsboxBot(commands.Bot):
         # Asia evaluated at 07:00 CET next morning
         self.scheduler.schedule_session_evaluation("asia", self.dispatch_scheduled_asia_eval, hour=7, minute=0)
 
-        # 6. Schedule Periodic 30-Minute Global Flash News (:00 and :30)
-        self.scheduler.schedule_periodic_flash_news(self.dispatch_scheduled_flash_news)
+        # 6. Schedule Periodic Global Flash News (:25 and :55)
+        self.scheduler.schedule_periodic_flash_news(self.dispatch_scheduled_flash_news, minute_cron="25,55")
 
         self.scheduler.start()
 

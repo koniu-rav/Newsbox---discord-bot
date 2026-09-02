@@ -33,3 +33,4 @@ Produce a targeted, actionable briefing dedicated strictly to the European Tradi
    - Dokładne godziny najważniejszych odczytów i okien ryzyka (np. 09:00, 10:00, 11:00).
 
 Language: Polish (profesjonalny żargon tradingowy, konkretne poziomy i zalecenia).
+

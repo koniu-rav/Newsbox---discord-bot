@@ -31,3 +31,4 @@ Produce a strategic weekly roadmap (without splitting into intraday sessions —
    - 2-3 najważniejsze zasady obronne i czego bezwzględnie unikać w nadchodzących dniach.
 
 Language: Polish (profesjonalny styl analityczny, zwięźle, konkretne tezy i poziomy).
+

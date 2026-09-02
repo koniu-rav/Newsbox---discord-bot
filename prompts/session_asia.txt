@@ -30,3 +30,4 @@ Produce a targeted, actionable briefing dedicated strictly to the Asian Trading 
    - Zasady zabezpieczania pozycji i kluczowe godziny odczytów w Azji (np. 01:30, 02:30, 04:30 CET).
 
 Language: Polish (konkretnie, pod nocną płynność i specyfikę sesji azjatyckiej).
+
