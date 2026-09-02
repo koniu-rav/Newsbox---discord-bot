@@ -2,6 +2,8 @@
 
 from newsbox.utils.logger import setup_logger
 from newsbox.utils.embeds import (
+    create_weekly_outlook_embed,
+    create_session_advisory_embed,
     create_trader_advisory_embed,
     create_single_asset_embed,
     create_portfolio_embed,
@@ -15,6 +17,8 @@ from newsbox.utils.embeds import (
 
 __all__ = [
     "setup_logger",
+    "create_weekly_outlook_embed",
+    "create_session_advisory_embed",
     "create_trader_advisory_embed",
     "create_single_asset_embed",
     "create_portfolio_embed",

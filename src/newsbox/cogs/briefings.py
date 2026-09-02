@@ -1,12 +1,13 @@
-"""Briefings Cog - 8:00 AM macro briefing, 12:30 PM accuracy evaluation, and on-demand advisory."""
+"""Briefings Cog - handles Sunday Weekly Outlook, 3 Daily Session Briefings (London, New York, Asia), Single-Asset Advisory, and Multi-Tier Accuracy Tracking."""
 
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, Dict, Any
+from zoneinfo import ZoneInfo
 import discord
 from discord.ext import commands
 
 from newsbox.config import get_settings
-from newsbox.services.accuracy_service import AccuracyService
+from newsbox.services.accuracy_service import AccuracyService, VALID_SESSIONS, SESSION_NAMES
 from newsbox.services.calendar_service import CalendarService
 from newsbox.services.gemini_service import GeminiService
 from newsbox.services.market_service import MarketService
@@ -15,16 +16,18 @@ from newsbox.utils.embeds import (
     create_accuracy_embed,
     create_calendar_embed,
     create_error_embed,
+    create_session_advisory_embed,
     create_single_asset_embed,
-    create_trader_advisory_embed,
+    create_weekly_outlook_embed,
 )
 from newsbox.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
+WARSAW_TZ = ZoneInfo("Europe/Warsaw")
 
 
 class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
-    """Commands and automated dispatch for morning macro reports, accuracy tracking, and asset briefs."""
+    """Commands and automated dispatchers for Sunday Weekly Outlook, 3 Session Briefings, and Multi-Tier Accuracy."""
 
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -35,127 +38,205 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
         self.gemini_service = GeminiService()
         self.accuracy_service = AccuracyService()
 
-    async def compile_and_send_macro_briefing(
-        self,
-        channel: discord.abc.Messageable,
-        is_scheduled: bool = False,
-    ) -> None:
-        """Fetch market data, calendar, news, generate AI advisory (FX Majors, DXY, DAX), and send Discord Embed.
-        Only the official 08:00 AM scheduled dispatch records baseline prices for future accuracy evaluation.
-        """
+    def _determine_current_session(self) -> str:
+        """Determine the upcoming/active session based on Warsaw local time."""
+        now_h = datetime.now(WARSAW_TZ).hour
+        if 6 <= now_h < 13:
+            return "london"
+        elif 13 <= now_h < 21:
+            return "newyork"
+        else:
+            return "asia"
+
+    async def compile_and_send_weekly_outlook(self, channel: discord.abc.Messageable) -> None:
+        """Fetch weekly calendar, market snapshot, and generate Sunday 10:00 AM Strategic Weekly Outlook."""
         try:
-            date_str = datetime.utcnow().strftime("%A, %d.%m.%Y")
-            iso_date = date.today().strftime("%Y-%m-%d")
-            logger.info("Generating morning macro briefing (is_scheduled=%s) for %s...", is_scheduled, date_str)
+            date_str = datetime.now(WARSAW_TZ).strftime("%A, %d.%m.%Y")
+            logger.info("Generating Strategic Weekly Outlook for %s...", date_str)
 
             market_data = await self.market_service.fetch_market_snapshot()
-            calendar_events = await self.calendar_service.fetch_todays_events(start_hour=8)
+            weekly_calendar = await self.calendar_service.fetch_weekly_events()
             news_headlines = await self.news_service.fetch_regional_news("ALL", limit=8)
 
-            advisory_text = await self.gemini_service.generate_trader_advisory(
+            outlook_text = await self.gemini_service.generate_weekly_outlook(
+                calendar_events=weekly_calendar,
+                market_data=market_data,
+                news_headlines=news_headlines,
+            )
+
+            embed = create_weekly_outlook_embed(
+                date_str=date_str,
+                market_data=market_data,
+                outlook_text=outlook_text,
+            )
+            await channel.send(embed=embed)
+            logger.info("Successfully sent Weekly Strategic Outlook to %s", channel)
+        except Exception as e:
+            logger.error("Failed to generate weekly outlook: %s", e, exc_info=True)
+            await channel.send(
+                embed=create_error_embed(
+                    "Błąd Planu Tygodniowego",
+                    f"Nie udało się wygenerować planu tygodniowego: {e}",
+                )
+            )
+
+    async def compile_and_send_session_briefing(
+        self,
+        channel: discord.abc.Messageable,
+        session_key: str = "london",
+        is_scheduled: bool = False,
+    ) -> None:
+        """Fetch market data, calendar, news for a specific session (london, newyork, asia) and send Discord Embed.
+        Scheduled dispatches (1h before pre-market) save baseline prices for accuracy tracking.
+        """
+        try:
+            s_clean = session_key.lower().strip()
+            if s_clean not in VALID_SESSIONS:
+                s_clean = "london"
+
+            now_warsaw = datetime.now(WARSAW_TZ)
+            date_str = now_warsaw.strftime("%A, %d.%m.%Y")
+            iso_date = now_warsaw.strftime("%Y-%m-%d")
+
+            # Determine calendar start hour for the session
+            start_hour = 7 if s_clean == "london" else (13 if s_clean == "newyork" else 23)
+
+            logger.info("Generating %s session briefing (is_scheduled=%s) for %s...", s_clean, is_scheduled, date_str)
+
+            market_data = await self.market_service.fetch_market_snapshot()
+            calendar_events = await self.calendar_service.fetch_todays_events(start_hour=start_hour)
+            news_region = "EU" if s_clean == "london" else ("USA" if s_clean == "newyork" else "GLOBAL")
+            news_headlines = await self.news_service.fetch_regional_news(news_region, limit=8)
+
+            advisory_text = await self.gemini_service.generate_session_advisory(
+                session_key=s_clean,
                 market_data=market_data,
                 economic_events=calendar_events,
                 news_headlines=news_headlines,
             )
 
-            # ONLY save to accuracy history if this is the official scheduled 08:00 AM briefing
+            # Record baseline for scheduled dispatches
             if is_scheduled:
-                self.accuracy_service.save_official_morning_briefing(
+                self.accuracy_service.save_session_briefing(
+                    session=s_clean,
                     advisory_text=advisory_text,
                     market_snapshot=market_data,
                     briefing_date=iso_date,
                 )
 
-            embed = create_trader_advisory_embed(
+            embed = create_session_advisory_embed(
+                session_key=s_clean,
                 date_str=date_str,
                 market_data=market_data,
                 advisory_text=advisory_text,
             )
             await channel.send(embed=embed)
-            logger.info("Successfully sent macro briefing to channel %s", channel)
-
+            logger.info("Successfully sent %s session briefing to %s", s_clean, channel)
         except Exception as e:
-            logger.error("Failed to generate macro briefing: %s", e, exc_info=True)
+            logger.error("Failed to generate %s session briefing: %s", session_key, e, exc_info=True)
             await channel.send(
                 embed=create_error_embed(
-                    "Błąd Generowania Briefingu",
-                    f"Wystąpił błąd podczas generowania porannego raportu: {e}",
+                    f"Błąd Briefingu Sesji ({session_key.upper()})",
+                    f"Wystąpił błąd podczas generowania analizy sesyjnej: {e}",
                 )
             )
 
-    async def compile_and_send_accuracy_report(self, channel: discord.abc.Messageable) -> None:
-        """Evaluate yesterday's official 08:00 AM briefing against current market prices and send report.
-        Idempotent: If yesterday was already evaluated, displays the existing record without duplicating stats.
-        """
+    # Legacy helper aliased to London session
+    async def compile_and_send_macro_briefing(
+        self,
+        channel: discord.abc.Messageable,
+        is_scheduled: bool = False,
+    ) -> None:
+        """Legacy helper aliasing to London session briefing."""
+        await self.compile_and_send_session_briefing(channel, session_key="london", is_scheduled=is_scheduled)
+
+    async def compile_and_send_session_accuracy(
+        self,
+        channel: discord.abc.Messageable,
+        session_key: str = "london",
+    ) -> None:
+        """Evaluate a specific concluded session's recommendations and send report."""
         try:
-            logger.info("Processing accuracy and performance evaluation (yesterday's briefing focus)...")
-            yesterday_pending = self.accuracy_service.get_yesterday_briefing_to_evaluate()
+            s_clean = session_key.lower().strip()
+            logger.info("Processing accuracy evaluation for session: %s...", s_clean)
+
+            pending = self.accuracy_service.get_pending_session_to_evaluate(session=s_clean)
             current_market = await self.market_service.fetch_market_snapshot()
 
-            if yesterday_pending:
-                # We have yesterday's unevaluated brief -> Run Gemini evaluation
-                eval_date = yesterday_pending.get("date", "Wczoraj")
-                start_snapshot = yesterday_pending.get("market_snapshot", {})
-                advisory = yesterday_pending.get("advisory_text", "")
+            if pending:
+                eval_date = pending.get("date", "Wczoraj")
+                start_snapshot = pending.get("market_snapshot", {})
+                advisory = pending.get("advisory_text", "")
 
-                eval_dict = await self.gemini_service.evaluate_briefing_performance(
-                    yesterday_advisory=advisory,
+                eval_dict = await self.gemini_service.evaluate_session_performance(
+                    session_key=s_clean,
+                    session_advisory=advisory,
                     start_prices=start_snapshot,
-                    current_prices=current_market,
+                    end_prices=current_market,
                 )
 
-                record = self.accuracy_service.record_evaluation(
+                record = self.accuracy_service.record_session_evaluation(
+                    session=s_clean,
                     date_str=eval_date,
                     score=eval_dict.get("score", 75),
                     breakdown=eval_dict.get("breakdown", ""),
                     conclusions=eval_dict.get("conclusions", ""),
                 )
 
-                global_stats = self.accuracy_service.get_global_stats()
-                embed = create_accuracy_embed(record, global_stats)
+                multi_tier_stats = self.accuracy_service.get_multi_tier_stats()
+                embed = create_accuracy_embed(record, multi_tier_stats)
                 await channel.send(embed=embed)
-                logger.info("Evaluated and sent new accuracy report for %s", eval_date)
+                logger.info("Evaluated and sent new accuracy report for %s (%s)", eval_date, s_clean)
                 return
 
-            # If no pending yesterday briefing, check if yesterday was already evaluated
-            last_eval = self.accuracy_service.get_last_evaluation()
+            # If no pending session, check last evaluation
+            last_eval = self.accuracy_service.get_last_evaluation(session=s_clean) or self.accuracy_service.get_last_evaluation()
             if last_eval:
-                global_stats = self.accuracy_service.get_global_stats()
-                embed = create_accuracy_embed(last_eval, global_stats)
+                multi_tier_stats = self.accuracy_service.get_multi_tier_stats()
+                embed = create_accuracy_embed(last_eval, multi_tier_stats)
                 await channel.send(embed=embed)
-                logger.info("Sent existing accuracy report for %s (idempotent view)", last_eval.get("date"))
-                return
+            else:
+                empty_record = {
+                    "score": 0,
+                    "status": "neutralna",
+                    "date": "Brak danych",
+                    "session": s_clean,
+                    "breakdown": "Brak zarejestrowanych wcześniejszych sesji do ewaluacji.",
+                    "conclusions": "Statystyki zostaną zaktualizowane po zakończeniu najbliższej sesji.",
+                }
+                embed = create_accuracy_embed(empty_record, self.accuracy_service.get_multi_tier_stats())
+                await channel.send(embed=embed)
+        except Exception as e:
+            logger.error("Failed to compile session accuracy report: %s", e, exc_info=True)
 
-            # Day 1 initial state: no previous days available yet
-            today_str = date.today().strftime("%Y-%m-%d")
-            embed = discord.Embed(
-                title="📊 Raport Skuteczności Briefingu (Inicjalizacja)",
-                description=(
-                    "ℹ️ **Trwa zbieranie danych dla pierwszego cyklu ewaluacji.**\n\n"
-                    f"• Dzisiejszy oficjalny brief z 08:00 (`{today_str}`) zostanie zweryfikowany **jutro o 12:30** po pełnej sesji giełdowej.\n"
-                    "• Zasady oceny: `0-25%` Nieudana | `25-75%` Neutralna | `75-100%` Udana."
-                ),
-                color=0x3498DB,
-                timestamp=datetime.utcnow(),
-            )
-            embed.set_footer(text="Newsbox Accuracy Tracker • Gemini AI")
-            await channel.send(embed=embed)
-
+    async def compile_and_send_accuracy_report(self, channel: discord.abc.Messageable) -> None:
+        """Legacy / general accuracy command: evaluates the latest pending session or displays multi-tier report."""
+        try:
+            pending = self.accuracy_service.get_pending_session_to_evaluate()
+            if pending:
+                s_key = pending.get("session", "london")
+                await self.compile_and_send_session_accuracy(channel, session_key=s_key)
+            else:
+                last_eval = self.accuracy_service.get_last_evaluation()
+                if last_eval:
+                    multi_tier_stats = self.accuracy_service.get_multi_tier_stats()
+                    embed = create_accuracy_embed(last_eval, multi_tier_stats)
+                    await channel.send(embed=embed)
+                else:
+                    await self.compile_and_send_session_accuracy(channel, session_key="london")
         except Exception as e:
             logger.error("Failed to compile accuracy report: %s", e, exc_info=True)
-            await channel.send(
-                embed=create_error_embed(
-                    "Błąd Ewaluacji Skuteczności",
-                    f"Nie udało się wygenerować raportu skuteczności: {e}",
-                )
-            )
 
-    async def compile_and_send_single_asset(self, channel: discord.abc.Messageable, symbol: str) -> None:
-        """Fetch single asset quote and generate focused AI advice."""
+    async def compile_and_send_single_asset(
+        self,
+        channel: discord.abc.Messageable,
+        symbol: str,
+    ) -> None:
+        """Fetch quotes and dedicated AI analysis for 1 specific financial asset."""
         try:
-            asset_data = await self.market_service.fetch_single_asset(symbol)
-            news_headlines = await self.news_service.fetch_regional_news("ALL", limit=10)
-            matching_news = [h for h in news_headlines if symbol.upper() in h.get("title", "").upper()] or news_headlines[:4]
+            resolved_ticker = self.market_service.resolve_ticker(symbol)
+            asset_data = await self.market_service.fetch_single_asset(resolved_ticker)
+            matching_news = await self.news_service.fetch_asset_news(symbol, limit=4)
 
             advisory_text = await self.gemini_service.generate_single_asset_advisory(
                 symbol=symbol,
@@ -178,7 +259,7 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
     async def compile_and_send_calendar_briefing(self, channel: discord.abc.Messageable) -> None:
         """Fetch economic calendar, generate AI risk assessment, and send Discord Embed."""
         try:
-            date_str = datetime.utcnow().strftime("%A, %d.%m.%Y")
+            date_str = datetime.now(WARSAW_TZ).strftime("%A, %d.%m.%Y")
             calendar_events = await self.calendar_service.fetch_todays_events(start_hour=7)
             calendar_advice = await self.gemini_service.generate_calendar_advisory(calendar_events)
 
@@ -192,39 +273,74 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             logger.error("Failed to send calendar briefing: %s", e, exc_info=True)
 
     @commands.command(name="briefing", aliases=["macro", "morning", "poranek"])
-    async def briefing_command(self, ctx: commands.Context, target_asset: Optional[str] = None) -> None:
-        """Wygeneruj poranny raport makro lub analizę dla 1 wybranego waloru (np. !briefing DAX)."""
-        async with ctx.typing():
-            if target_asset:
-                await self.compile_and_send_single_asset(ctx.channel, target_asset)
-            else:
-                # Manual invocation: is_scheduled=False
-                await self.compile_and_send_macro_briefing(ctx.channel, is_scheduled=False)
+    async def briefing_command(self, ctx: commands.Context, target: Optional[str] = None) -> None:
+        """Wygeneruj plan tygodniowy, briefing sesyjny lub analizę 1 waloru.
 
-    @commands.command(name="accuracy", aliases=["skutecznosc", "stats", "wyniki", "counter"])
-    async def accuracy_command(self, ctx: commands.Context) -> None:
-        """Sprawdź skuteczność wczorajszego briefu (globalny counter, wynik wczorajszego briefu, wnioski)."""
+        Użycie:
+        - `!briefing` - generuje briefing dla aktualnie nadchodzącej sesji
+        - `!briefing weekly` / `!weekly` - niedzielny plan na cały nadchodzący tydzień
+        - `!briefing london` / `!london` - briefing sesji europejskiej (DAX, FX)
+        - `!briefing ny` / `!ny` - briefing sesji amerykańskiej (Wall St, DXY, US Data)
+        - `!briefing asia` / `!asia` - briefing sesji azjatyckiej (Tokio, AUD, BoJ)
+        - `!briefing DAX` / `!briefing BTC` - dedykowana analiza dla 1 waloru
+        """
         async with ctx.typing():
-            await self.compile_and_send_accuracy_report(ctx.channel)
+            if not target:
+                session = self._determine_current_session()
+                await self.compile_and_send_session_briefing(ctx.channel, session_key=session)
+                return
+
+            t_lower = target.lower().strip()
+            if t_lower in ["weekly", "tydzien", "week", "plan"]:
+                await self.compile_and_send_weekly_outlook(ctx.channel)
+            elif t_lower in ["london", "londyn", "eu", "europa"]:
+                await self.compile_and_send_session_briefing(ctx.channel, session_key="london")
+            elif t_lower in ["ny", "usa", "us", "nowyjork", "wallstreet"]:
+                await self.compile_and_send_session_briefing(ctx.channel, session_key="newyork")
+            elif t_lower in ["asia", "azja", "tokyo", "tokio"]:
+                await self.compile_and_send_session_briefing(ctx.channel, session_key="asia")
+            else:
+                # Target is an asset ticker
+                await self.compile_and_send_single_asset(ctx.channel, target)
+
+    @commands.command(name="weekly", aliases=["tydzien"])
+    async def weekly_command(self, ctx: commands.Context) -> None:
+        """Szybki skrót: Wygeneruj strategiczny plan na nadchodzący tydzień."""
+        async with ctx.typing():
+            await self.compile_and_send_weekly_outlook(ctx.channel)
+
+    @commands.command(name="london", aliases=["londyn"])
+    async def london_command(self, ctx: commands.Context) -> None:
+        """Szybki skrót: Briefing Sesji Londyńskiej (Europa)."""
+        async with ctx.typing():
+            await self.compile_and_send_session_briefing(ctx.channel, session_key="london")
+
+    @commands.command(name="ny", aliases=["nowyjork"])
+    async def ny_command(self, ctx: commands.Context) -> None:
+        """Szybki skrót: Briefing Sesji Nowojorskiej (Wall Street)."""
+        async with ctx.typing():
+            await self.compile_and_send_session_briefing(ctx.channel, session_key="newyork")
+
+    @commands.command(name="asia", aliases=["azja"])
+    async def asia_command(self, ctx: commands.Context) -> None:
+        """Szybki skrót: Briefing Sesji Azjatyckiej (Tokio / Sydney)."""
+        async with ctx.typing():
+            await self.compile_and_send_session_briefing(ctx.channel, session_key="asia")
 
     @commands.command(name="calendar", aliases=["kalendarz", "wydarzenia"])
     async def calendar_command(self, ctx: commands.Context) -> None:
-        """Wyświetl dzisiejszy kalendarz ekonomiczny wraz z zaleceniami AI."""
+        """Wyświetl kalendarz makroekonomiczny na najbliższe 24h z oceną ryzyk AI."""
         async with ctx.typing():
             await self.compile_and_send_calendar_briefing(ctx.channel)
 
-    @commands.command(name="market", aliases=["rynek", "notowania"])
-    async def market_command(self, ctx: commands.Context) -> None:
-        """Pobierz szybki podgląd aktualnych notowań śledzonych aktywów (DXY, EUR/USD, DAX, BTC...)."""
+    @commands.command(name="accuracy", aliases=["skutecznosc", "wyniki", "stats"])
+    async def accuracy_command(self, ctx: commands.Context, session: Optional[str] = None) -> None:
+        """Wyświetl wielopoziomowy raport skuteczności (Global, Weekly, Daily, Sessions)."""
         async with ctx.typing():
-            market_data = await self.market_service.fetch_market_snapshot()
-            date_str = datetime.utcnow().strftime("%H:%M UTC - %d.%m.%Y")
-            embed = create_trader_advisory_embed(
-                date_str=date_str,
-                market_data=market_data,
-                advisory_text="*Aktualne notowania instrumentów bazowych na żywo.*",
-            )
-            await ctx.send(embed=embed)
+            if session and session.lower().strip() in VALID_SESSIONS:
+                await self.compile_and_send_session_accuracy(ctx.channel, session_key=session.lower().strip())
+            else:
+                await self.compile_and_send_accuracy_report(ctx.channel)
 
 
 async def setup(bot: commands.Bot) -> None:

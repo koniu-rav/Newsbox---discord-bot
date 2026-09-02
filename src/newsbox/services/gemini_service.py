@@ -60,28 +60,27 @@ class GeminiService:
         """Retrieve cached prompt template or return default."""
         return self._prompt_cache.get(name, default)
 
-    async def generate_trader_advisory(
+    async def generate_weekly_outlook(
         self,
+        calendar_events: List[Dict[str, Any]],
         market_data: Dict[str, Any],
-        economic_events: List[Dict[str, Any]],
         news_headlines: List[Dict[str, Any]],
     ) -> str:
-        """Generate comprehensive 8:00 AM daily trading advisory focused on FX Majors, DXY, and DAX."""
+        """Generate comprehensive Sunday 10:00 AM strategic weekly outlook across FX, Indices, Commodities, and Crypto."""
         if not self._client:
             return (
-                "🧭 **MARKET REGIME & MAKRO BIAS**: Umiarkowany Risk-On przy konsolidacji DXY wokół 104.20.\n\n"
-                "💱 **FX MAJORS & DXY**:\n"
-                "- **EUR/USD**: Spokojny handel przed popołudniowymi odczytami z USA. Wsparcie na 1.0820.\n"
-                "- **USD/JPY**: Presja wzrostowa podtrzymana przez rentowności obligacji USA.\n\n"
-                "🇩🇪 **DAX & EUROPEAN EQUITIES**:\n"
-                "- Pozytywne otwarcie kasowe o 09:00. Cel kupujących: 18,480 pkt.\n\n"
-                "🟢 **CO MOŻNA DZISIAJ HANDLOWAĆ (IN PLAY)**:\n"
-                "- **DAX (Long)**: Wybicie lokalnego oporu na otwarciu sesji we Frankfurcie.\n"
-                "- **BTC**: Utrzymanie strefy popytowej, perspektywa testu 68k$.\n\n"
-                "⛔ **CZEGO DZISIAJ NIE HANDLOWAĆ (NO-TRADE)**:\n"
-                "- **EUR/USD & Pary USD**: Unikaj pozycji intraday w oknie 14:25-14:40 z uwagi na odczyty makro.\n\n"
-                "📋 **PLAN SESJI & WSKAZÓWKI**:\n"
-                "- Handluj pierwsze 45 minut po otwarciu 09:00, następnie zredukuj ryzyko przed danymi z USA o 14:30."
+                "🌐 **GŁÓWNY MOTYW PRZEWODNI TYGODNIA**: Umiarkowany Risk-On przed kluczowymi danymi o inflacji i decyzjami banków centralnych.\n\n"
+                "📅 **PUNKTY ZWROTNE TYGODNIA**:\n"
+                "- **Środa 14:15**: Raport ADP z rynku pracy USA.\n"
+                "- **Środa 15:45**: Decyzja Banku Kanady (BoC) ws. stóp procentowych.\n"
+                "- **Piątek 14:30**: Raport Non-Farm Payrolls (NFP) i Stopa Bezrobocia w USA.\n\n"
+                "🎯 **STRATEGICZNY BIAS NA WALORY**:\n"
+                "- **DXY & FX**: Dolar w fazie konsolidacji; szansa na obronę wsparcia na EUR/USD (1.0800).\n"
+                "- **Indeksy (DAX, S&P 500)**: Nastawienie umiarkowanie bycze (Long bias po lokalnych korektach).\n"
+                "- **Złoto & Surowce**: Złoto pod presją silnych rentowności obligacji, ropa stabilna.\n"
+                "- **Kryptowaluty (BTC/ETH)**: Konsolidacja w strefie akumulacji przed ruchem kierunkowym.\n\n"
+                "⚠️ **GŁÓWNE PUŁAPKI TYGODNIA**:\n"
+                "- Unikaj agresywnego pozycjonowania przed piątkowym odczytem NFP z USA."
             )
 
         market_lines = [
@@ -91,10 +90,54 @@ class GeminiService:
         market_str = "\n".join(market_lines) if market_lines else "Brak danych rynkowych"
 
         event_lines = [
-            f"- {e.get('time', '')} [{e.get('currency', '')}] {e.get('title', '')} (Waga: {e.get('impact', '🟡')})"
-            for e in economic_events[:8]
+            f"- {e.get('time', '')} [{e.get('currency', '')}] {e.get('title', '')} (Waga: {e.get('impact', '🔴')})"
+            for e in calendar_events[:15]
         ]
-        events_str = "\n".join(event_lines) if event_lines else "Brak kluczowych publikacji dzisiaj"
+        events_str = "\n".join(event_lines) if event_lines else "Brak kluczowych publikacji"
+
+        news_lines = [
+            f"- [{h.get('region', 'GLOBAL')}] {h.get('title', '')} ({h.get('source', '')})"
+            for h in news_headlines[:8]
+        ]
+        news_str = "\n".join(news_lines) if news_lines else "Brak świeżych doniesień"
+
+        template = self.get_prompt_template(
+            "weekly_outlook",
+            default="Przygotuj strategiczny plan na nadchodzący tydzień:\n{calendar_events_str}\n{market_data_str}\n{news_headlines_str}"
+        )
+        prompt = template.format(
+            calendar_events_str=events_str,
+            market_data_str=market_str,
+            news_headlines_str=news_str,
+        )
+
+        return await self._call_gemini(
+            prompt,
+            fallback_msg="Strategiczny plan tygodniowy: Rynki przygotowują się na serię kluczowych publikacji makroekonomicznych.",
+        )
+
+    async def generate_session_advisory(
+        self,
+        session_key: str,
+        market_data: Dict[str, Any],
+        economic_events: List[Dict[str, Any]],
+        news_headlines: List[Dict[str, Any]],
+    ) -> str:
+        """Generate tailored session briefing (london, newyork, asia) dispatched 1h before pre-market."""
+        s_clean = session_key.lower().strip()
+        template_name = f"session_{s_clean}" if s_clean in ["london", "newyork", "asia"] else "session_london"
+
+        market_lines = [
+            f"- {ticker}: {info.get('price', 'N/A')} ({info.get('change_pct', '0.00%')})"
+            for ticker, info in market_data.items()
+        ]
+        market_str = "\n".join(market_lines) if market_lines else "Brak danych rynkowych"
+
+        event_lines = [
+            f"- {e.get('time', '')} [{e.get('currency', '')}] {e.get('title', '')} (Waga: {e.get('impact', '🟡')})"
+            for e in economic_events[:10]
+        ]
+        events_str = "\n".join(event_lines) if event_lines else "Brak bezpośrednich publikacji"
 
         news_lines = [
             f"- [{h.get('region', 'GLOBAL')}] {h.get('title', '')} ({h.get('source', '')})"
@@ -102,18 +145,58 @@ class GeminiService:
         ]
         news_str = "\n".join(news_lines) if news_lines else "Brak świeżych nagłówków"
 
-        template = self.get_prompt_template(
-            "trader_advisory",
-            default="Podsumuj sytuację rynkową z naciskiem na FX Majors, DXY i DAX:\n{market_data_str}\n{calendar_events_str}\n{news_headlines_str}"
-        )
+        if not self._client:
+            if s_clean == "london":
+                return (
+                    "🧭 **SENTYMENT SESJI EUROPEJSKIEJ (09:00 CET)**: Otwarcie w klimacie Risk-On.\n\n"
+                    "🇩🇪 **PLAN NA DAX**: Byczy sentyment na otwarciu kasowym. Cel: 18,480 pkt.\n"
+                    "💱 **FX MAJORS (EUR/USD, GBP/USD)**: EUR/USD broni wsparcia 1.0820 przed popołudniem.\n\n"
+                    "🎯 **REKOMENDACJE**:\n"
+                    "- 🟢 **CO HANDLOWAĆ**: DAX Long po otwarciu Frankfurtu (09:00-09:45).\n"
+                    "- ⛔ **CZEGO UNIKAĆ**: Pozycji długoterminowych na EUR/USD przed danymi z USA o 14:30."
+                )
+            elif s_clean == "newyork":
+                return (
+                    "🇺🇸 **WALL STREET PRE-MARKET**: Kontrakty na S&P 500 i Nasdaq w lekkim plusie przed 15:30 CET.\n\n"
+                    "📊 **DANE Z USA (14:30 / 16:00)**: Rynek wyczekuje na odczyty z rynku pracy i ISM.\n"
+                    "🪙 **KRYPTO & SUROWCE**: Złoto stabilne przy 2500$, BTC konsoliduje.\n\n"
+                    "🎯 **REKOMENDACJE**:\n"
+                    "- 🟢 **CO HANDLOWAĆ**: Nasdaq / S&P 500 w pierwszym impulsie po otwarciu kasowym.\n"
+                    "- ⛔ **CZEGO UNIKAĆ**: Handlu bezpośrednio w sekundzie publikacji odczytu makro o 14:30."
+                )
+            else:  # asia
+                return (
+                    "🇯🇵 **OTWARCIE SESJI AZJATYCKIEJ**: Spokojny handel po zamknięciu w USA.\n\n"
+                    "🦘 **PARY ANTYPODÓW & CHINY**: USD/JPY stabilizuje się wokół 154.00, AUD/USD wyczekuje na dane z Chin.\n\n"
+                    "🎯 **REKOMENDACJE**:\n"
+                    "- 🟢 **CO HANDLOWAĆ**: USD/JPY oraz Nikkei w oknie 01:00-03:00 CET.\n"
+                    "- ⛔ **CZEGO UNIKAĆ**: Par walutowych z rynków wschodzących i krzyżówek EUR z uwagi na nocne spready."
+                )
 
+        template = self.get_prompt_template(
+            template_name,
+            default="Podsumuj sytuację rynkową dla sesji:\n{market_data_str}\n{calendar_events_str}\n{news_headlines_str}"
+        )
         prompt = template.format(
             market_data_str=market_str,
             calendar_events_str=events_str,
             news_headlines_str=news_str,
         )
 
-        return await self._call_gemini(prompt, fallback_msg="Nie udało się wygenerować rekomendacji AI.")
+        return await self._call_gemini(
+            prompt,
+            fallback_msg=f"Briefing sesji {s_clean.upper()}: Rynki bazowe w oczekiwaniu na otwarcie handlu.",
+        )
+
+    async def generate_trader_advisory(
+        self,
+        market_data: Dict[str, Any],
+        economic_events: List[Dict[str, Any]],
+        news_headlines: List[Dict[str, Any]],
+    ) -> str:
+        """Generate comprehensive 8:00 AM daily trading advisory focused on FX Majors, DXY, and DAX."""
+        # Alias to London session advisory
+        return await self.generate_session_advisory("london", market_data, economic_events, news_headlines)
 
     async def generate_single_asset_advisory(
         self,
@@ -289,40 +372,49 @@ class GeminiService:
             fallback_msg="Flash News: Podwyższona zmienność na rynkach po napływie najnowszych nagłówków.",
         )
 
-    async def evaluate_briefing_performance(
+    async def evaluate_session_performance(
         self,
-        yesterday_advisory: str,
+        session_key: str,
+        session_advisory: str,
         start_prices: Dict[str, Any],
-        current_prices: Dict[str, Any],
+        end_prices: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """Evaluate yesterday's recommendations against market reality using Gemini AI."""
+        """Evaluate a specific trading session's recommendations against market reality using Gemini AI."""
+        s_clean = session_key.lower().strip()
+        session_name = {
+            "london": "Londyn (Sesja Europejska)",
+            "newyork": "Nowy Jork (Wall Street)",
+            "asia": "Azja (Tokio / Sydney)",
+        }.get(s_clean, "Sesja Handlowa")
+
         start_lines = [
             f"- {sym}: {data.get('price', 'N/A')}"
             for sym, data in start_prices.items()
         ]
-        current_lines = [
-            f"- {sym}: {data.get('price', 'N/A')} (24h Zmiana: {data.get('change_pct', '0.00%')})"
-            for sym, data in current_prices.items()
+        end_lines = [
+            f"- {sym}: {data.get('price', 'N/A')} (Zmiana: {data.get('change_pct', '0.00%')})"
+            for sym, data in end_prices.items()
         ]
 
         template = self.get_prompt_template(
-            "briefing_evaluation",
+            "session_evaluation",
             default=(
-                "Oceń trafność wczorajszego briefingu ({yesterday_advisory}) na podstawie cen początkowych "
-                "({start_prices_str}) i obecnych ({current_prices_str}). Zwróć JSON ze score (0-100), status, breakdown i conclusions."
+                "Oceń trafność briefingu dla sesji {session_name} ({session_advisory}) na podstawie cen początkowych "
+                "({start_prices_str}) i końcowych ({end_prices_str}). Zwróć JSON ze score (0-100), status, breakdown i conclusions."
             )
         )
         prompt = template.format(
-            yesterday_advisory=yesterday_advisory,
+            session_name=session_name,
+            session_advisory=session_advisory,
             start_prices_str="\n".join(start_lines) or "Brak danych cenowych.",
-            current_prices_str="\n".join(current_lines) or "Brak danych cenowych.",
+            end_prices_str="\n".join(end_lines) or "Brak danych cenowych.",
         )
 
         fallback = {
             "score": 80,
             "status": "udana",
-            "breakdown": "• DAX / Rynki UE: Zgodność z założonym kierunkiem sesji.\n• FX Majors: Stabilizacja zmienności w wyznaczonych strefach.",
-            "conclusions": "Główne założenia z porannego briefu zostały zrealizowane bez nieoczekiwanych zwrotów akcji na rynkach bazowych.",
+            "breakdown": f"• {session_name}: Zgodność z założonym kierunkiem sesji i zachowaniem kluczowych walorów.",
+            "conclusions": f"Główne zalecenia dla sesji {session_name} zostały zrealizowane zgodnie z oczekiwaniami rynkowymi.",
         }
 
         if not self._client:
@@ -333,7 +425,6 @@ class GeminiService:
             return fallback
 
         try:
-            # Extract JSON substring if wrapped in markdown blocks
             clean_json = raw_response
             if "```json" in clean_json:
                 clean_json = clean_json.split("```json", 1)[1].split("```", 1)[0].strip()
@@ -349,8 +440,22 @@ class GeminiService:
                 "conclusions": str(parsed.get("conclusions", fallback["conclusions"])),
             }
         except Exception as e:
-            logger.warning("Failed to parse evaluation JSON from Gemini response: %s. Using text fallback.", e)
+            logger.warning("Failed to parse session evaluation JSON from Gemini response: %s. Using text fallback.", e)
             return fallback
+
+    async def evaluate_briefing_performance(
+        self,
+        yesterday_advisory: str,
+        start_prices: Dict[str, Any],
+        current_prices: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Legacy helper aliasing to London session evaluation."""
+        return await self.evaluate_session_performance(
+            session_key="london",
+            session_advisory=yesterday_advisory,
+            start_prices=start_prices,
+            end_prices=current_prices,
+        )
 
     async def _call_gemini(self, prompt: str, fallback_msg: str) -> str:
         """Async execution of Gemini text generation."""

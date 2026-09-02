@@ -14,3 +14,4 @@ CRITICAL RULES:
 - Total length: Strictly maximum 2-3 sentences.
 - Zero filler words, maximum market value and speed.
 - Language: Polish.
+

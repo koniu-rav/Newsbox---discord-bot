@@ -19,7 +19,7 @@ def test_create_trader_advisory_embed(sample_market_data):
         advisory_text="🧭 **MARKET REGIME**: Risk-on.\n🟢 **CO HANDLOWAĆ**: DAX Long.\n⛔ **CZEGO UNIKAĆ**: EUR/USD.",
     )
 
-    assert "Briefing Makro (Londyn • Nowy Jork • Azja)" in embed.title
+    assert "Briefing Sesji Londyńskiej" in embed.title
     assert "Wtorek, 01.09.2026" in embed.title
     assert "Risk-on" in embed.description
     assert len(embed.fields) >= 1
@@ -93,3 +93,36 @@ def test_create_flash_news_embed():
     assert "Fed ogłosił zmianę" in embed.description
     assert len(embed.fields) == 1
     assert "example.com/news1" in embed.fields[0].value
+
+
+def test_create_weekly_outlook_embed(sample_market_data):
+    """Test generating Sunday Weekly Outlook embed."""
+    from newsbox.utils.embeds import create_weekly_outlook_embed
+
+    embed = create_weekly_outlook_embed(
+        date_str="Niedziela, 06.09.2026",
+        market_data=sample_market_data,
+        outlook_text="🌐 **GŁÓWNY MOTYW TYGODNIA**: Risk-on przed danymi NFP.",
+    )
+
+    assert "Strategiczny Plan & Horyzont Tygodniowy" in embed.title
+    assert "Risk-on" in embed.description
+    assert len(embed.fields) == 1
+    assert "Notowania" in embed.fields[0].name
+
+
+def test_create_session_advisory_embed(sample_market_data):
+    """Test generating session advisory embeds for London, NY, and Asia."""
+    from newsbox.utils.embeds import create_session_advisory_embed
+
+    # London
+    lon_embed = create_session_advisory_embed("london", "Środa, 02.09.2026", sample_market_data, "DAX Long")
+    assert "Briefing Sesji Londyńskiej" in lon_embed.title
+
+    # New York
+    ny_embed = create_session_advisory_embed("newyork", "Środa, 02.09.2026", sample_market_data, "S&P 500 Short")
+    assert "Briefing Sesji Nowojorskiej" in ny_embed.title
+
+    # Asia
+    asia_embed = create_session_advisory_embed("asia", "Środa, 02.09.2026", sample_market_data, "USD/JPY Long")
+    assert "Briefing Sesji Azjatyckiej" in asia_embed.title

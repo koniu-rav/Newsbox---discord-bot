@@ -18,16 +18,16 @@ def truncate(text: str, max_length: int = MAX_FIELD_LENGTH) -> str:
     return text[: max_length - 3] + "..."
 
 
-def create_trader_advisory_embed(
+def create_weekly_outlook_embed(
     date_str: str,
     market_data: Dict[str, Any],
-    advisory_text: str,
+    outlook_text: str,
 ) -> discord.Embed:
-    """Build the primary 8:00 AM Trader Advisory embed (London, New York, Asia sessions)."""
+    """Build the Sunday 10:00 AM Strategic Weekly Outlook embed."""
     embed = discord.Embed(
-        title=f"🌅 Briefing Makro (Londyn • Nowy Jork • Azja) — {date_str}",
-        description=truncate(advisory_text, MAX_DESCRIPTION_LENGTH),
-        color=0x1F8B4C,  # Emerald Green
+        title=f"🗓️ Strategiczny Plan & Horyzont Tygodniowy — {date_str}",
+        description=truncate(outlook_text, MAX_DESCRIPTION_LENGTH),
+        color=0x8E44AD,  # Deep Purple / Royal Strategy
         timestamp=datetime.utcnow(),
     )
 
@@ -40,13 +40,75 @@ def create_trader_advisory_embed(
 
     if market_lines:
         embed.add_field(
-            name="📊 Notowania (FX Majors | DXY | DAX | BTC)",
+            name="📊 Notowania Otwarcia Tygodnia (FX • Indeksy • Krypto • Surowce)",
             value=truncate("\n".join(market_lines), MAX_FIELD_LENGTH),
             inline=False,
         )
 
     embed.set_footer(text=BRAND_FOOTER)
     return embed
+
+
+def create_session_advisory_embed(
+    session_key: str,
+    date_str: str,
+    market_data: Dict[str, Any],
+    advisory_text: str,
+) -> discord.Embed:
+    """Build tailored Session Advisory embed (London, New York, Asia)."""
+    s_clean = session_key.lower().strip()
+    session_config = {
+        "london": {
+            "title": f"🇬🇧 Briefing Sesji Londyńskiej (07:00 CET) — {date_str}",
+            "color": 0x1F8B4C,  # Emerald Green
+            "headline": "📊 Notowania Przed Otwarcie Europy (DAX • FX Majors)",
+        },
+        "newyork": {
+            "title": f"🇺🇸 Briefing Sesji Nowojorskiej (13:30 CET) — {date_str}",
+            "color": 0x2980B9,  # Strong Blue
+            "headline": "📊 Notowania Przed Wall Street (S&P 500 • DXY • Krypto • Złoto)",
+        },
+        "asia": {
+            "title": f"🇯🇵 Briefing Sesji Azjatyckiej (23:00 CET) — {date_str}",
+            "color": 0xD35400,  # Orange / Rust
+            "headline": "📊 Notowania Przed Sesją Azji (USD/JPY • AUD • Nikkei • BTC)",
+        },
+    }
+
+    cfg = session_config.get(s_clean, session_config["london"])
+
+    embed = discord.Embed(
+        title=cfg["title"],
+        description=truncate(advisory_text, MAX_DESCRIPTION_LENGTH),
+        color=cfg["color"],
+        timestamp=datetime.utcnow(),
+    )
+
+    market_lines = []
+    for symbol, info in market_data.items():
+        price = info.get("price", "N/A")
+        change = info.get("change_pct", "0.00%")
+        direction = info.get("direction", "⚪")
+        market_lines.append(f"**{symbol}**: `{price}` ({direction} {change})")
+
+    if market_lines:
+        embed.add_field(
+            name=cfg["headline"],
+            value=truncate("\n".join(market_lines), MAX_FIELD_LENGTH),
+            inline=False,
+        )
+
+    embed.set_footer(text=BRAND_FOOTER)
+    return embed
+
+
+def create_trader_advisory_embed(
+    date_str: str,
+    market_data: Dict[str, Any],
+    advisory_text: str,
+) -> discord.Embed:
+    """Build legacy / default Trader Advisory embed."""
+    return create_session_advisory_embed("london", date_str, market_data, advisory_text)
 
 
 def create_single_asset_embed(
@@ -300,14 +362,21 @@ def create_error_embed(title: str, description: str) -> discord.Embed:
 
 def create_accuracy_embed(
     evaluation_result: Dict[str, Any],
-    global_stats: Dict[str, Any],
+    stats: Dict[str, Any],
 ) -> discord.Embed:
-    """Build the 12:30 PM Accuracy & Performance Tracker embed."""
+    """Build the Multi-Tier Accuracy & Performance Tracker embed (Global, Weekly, Daily, Sessions)."""
     score = evaluation_result.get("score", 0)
     status = evaluation_result.get("status", "neutralna")
     eval_date = evaluation_result.get("date", "Wczoraj")
+    session_key = evaluation_result.get("session", "london")
     breakdown = evaluation_result.get("breakdown", "")
     conclusions = evaluation_result.get("conclusions", "")
+
+    session_name = {
+        "london": "🇬🇧 Londyn (Europa)",
+        "newyork": "🇺🇸 Nowy Jork (Wall St)",
+        "asia": "🇯🇵 Azja (Tokio/Sydney)",
+    }.get(session_key, "Sesja Handlowa")
 
     # Status badges and color
     if score > 75:
@@ -321,43 +390,81 @@ def create_accuracy_embed(
         color = 0xE74C3C  # Crimson Red
 
     embed = discord.Embed(
-        title="📊 Raport Skuteczności Briefingu (Ewaluacja 12:30)",
+        title="📊 Wielopoziomowy Raport Skuteczności • we.trade",
         color=color,
         timestamp=datetime.utcnow(),
     )
 
-    # 1. Globalny Counter
-    total = global_stats.get("total", 0)
-    successful = global_stats.get("successful", 0)
-    neutral = global_stats.get("neutral", 0)
-    failed = global_stats.get("failed", 0)
-    avg_score = global_stats.get("average_score", 0.0)
-    win_rate = global_stats.get("win_rate", 0.0)
+    # Extract multi-tier buckets
+    global_st = stats.get("global", stats)
+    sessions_st = stats.get("sessions", {})
+    weekly_st = stats.get("weekly", {})
 
-    counter_value = (
-        f"• **Skuteczność (Win-Rate)**: `{win_rate}%` (Średnia: `{avg_score}/100`)\n"
-        f"• **Łącznie analiz**: `{total}`\n"
-        f"• **Rozkład**: 🎯 Udane: `{successful}` | ⚖️ Neutralne: `{neutral}` | ❌ Nieudane: `{failed}`"
+    # 1. Globalny Counter
+    g_total = global_st.get("total", 0)
+    g_successful = global_st.get("successful", 0)
+    g_neutral = global_st.get("neutral", 0)
+    g_failed = global_st.get("failed", 0)
+    g_avg = global_st.get("average_score", 0.0)
+    g_winrate = global_st.get("win_rate", 0.0)
+
+    global_val = (
+        f"• **Globalny Win-Rate**: `{g_winrate}%` (Średnia: `{g_avg}/100`)\n"
+        f"• **Wszystkie ewaluacje**: `{g_total}`\n"
+        f"• **Rozkład**: 🎯 `{g_successful}` | ⚖️ `{g_neutral}` | ❌ `{g_failed}`"
     )
     embed.add_field(
-        name="🏆 Globalny Counter Skuteczności",
-        value=counter_value,
+        name="🏆 1. Skuteczność Globalna (All-Time)",
+        value=global_val,
         inline=False,
     )
 
-    # 2. Wynik wczorajszego briefu
-    eval_value = (
-        f"• **Data analizy**: `{eval_date}`\n"
-        f"• **Wynik punktowy**: `{score}/100` ({badge})\n"
-        f"• **Rozbicie na rynki**:\n{breakdown}"
+    # 2. Skuteczność Tygodniowa
+    w_num = weekly_st.get("week_number", "Bieżący tydzień")
+    w_total = weekly_st.get("total", 0)
+    w_winrate = weekly_st.get("win_rate", 0.0)
+    w_avg = weekly_st.get("average_score", 0.0)
+    w_success = weekly_st.get("successful", 0)
+
+    weekly_val = (
+        f"• **Tydzień `{w_num}`**: Win-Rate `{w_winrate}%` | Średnia `{w_avg}/100`\n"
+        f"• **Wynik tygodnia**: `{w_success}/{w_total}` udanych analiz"
     )
     embed.add_field(
-        name="📅 Wynik Ostatniego Briefu",
+        name="🗓️ 2. Skuteczność Tygodniowa",
+        value=weekly_val,
+        inline=False,
+    )
+
+    # 3. Rozbicie Sesyjne
+    lon_st = sessions_st.get("london", {})
+    ny_st = sessions_st.get("newyork", {})
+    asia_st = sessions_st.get("asia", {})
+
+    sessions_val = (
+        f"• 🇬🇧 **Londyn**: Win-Rate `{lon_st.get('win_rate', 0.0)}%` (Śr: `{lon_st.get('average_score', 0.0)}` | `{lon_st.get('successful', 0)}/{lon_st.get('total', 0)}`)\n"
+        f"• 🇺🇸 **Nowy Jork**: Win-Rate `{ny_st.get('win_rate', 0.0)}%` (Śr: `{ny_st.get('average_score', 0.0)}` | `{ny_st.get('successful', 0)}/{ny_st.get('total', 0)}`)\n"
+        f"• 🇯🇵 **Azja**: Win-Rate `{asia_st.get('win_rate', 0.0)}%` (Śr: `{asia_st.get('average_score', 0.0)}` | `{asia_st.get('successful', 0)}/{asia_st.get('total', 0)}`)"
+    )
+    embed.add_field(
+        name="🎯 3. Skuteczność w Rozbiciu na Sesje",
+        value=sessions_val,
+        inline=False,
+    )
+
+    # 4. Ostatnia Ewaluacja
+    eval_value = (
+        f"• **Sesja**: {session_name} (`{eval_date}`)\n"
+        f"• **Wynik punktowy**: `{score}/100` ({badge})\n"
+        f"• **Weryfikacja rynkowa**:\n{breakdown}"
+    )
+    embed.add_field(
+        name="📅 4. Wynik Ostatniej Ewaluowanej Sesji",
         value=truncate(eval_value, MAX_FIELD_LENGTH),
         inline=False,
     )
 
-    # 3. Wnioski
+    # 5. Wnioski
     if conclusions:
         embed.add_field(
             name="💡 Wnioski i Lekcje Rynkowe",

@@ -59,6 +59,35 @@ class CalendarService:
         fallback = self._get_dynamic_fallback(now, start_hour)
         return fallback
 
+    async def fetch_weekly_events(self) -> List[Dict[str, Any]]:
+        """Fetch high and medium impact economic events for the entire upcoming week."""
+        now = datetime.now(WARSAW_TZ)
+        # Determine coming week Monday 00:00 to Friday 23:59
+        days_ahead = (0 - now.weekday()) % 7  # Next Monday if weekend
+        if now.weekday() == 6:  # Sunday
+            start_week = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start_week = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        end_week = start_week + timedelta(days=6)  # Until Sunday
+
+        # Try FairEconomy weekly JSON
+        events = await self._fetch_from_fair_economy(start_week, end_week)
+        if events:
+            # Filter only High and Medium impact events
+            weekly_filtered = [e for e in events if e.get("weight", 3) in [1, 2]]
+            return weekly_filtered or events[:15]
+
+        # Fallback to key week events
+        return [
+            {"time": "Poniedziałek 16:00 CET", "currency": "USD", "title": "ISM Manufacturing PMI", "impact": "🔴", "weight": 1},
+            {"time": "Środa 14:15 CET", "currency": "USD", "title": "ADP Non-Farm Employment Change", "impact": "🔴", "weight": 1},
+            {"time": "Środa 15:45 CET", "currency": "CAD", "title": "Decyzja Banku Kanady ws. Stóp", "impact": "🔴", "weight": 1},
+            {"time": "Czwartek 14:30 CET", "currency": "USD", "title": "Initial Jobless Claims (Wnioski o zasiłek)", "impact": "🔴", "weight": 1},
+            {"time": "Czwartek 16:00 CET", "currency": "USD", "title": "ISM Services PMI (Sektor Usług USA)", "impact": "🔴", "weight": 1},
+            {"time": "Piątek 14:30 CET", "currency": "USD", "title": "Non-Farm Payrolls (NFP) & Stopa Bezrobocia USA", "impact": "🔴", "weight": 1},
+        ]
+
     def _update_cache(self, cache_key: str, events: List[Dict[str, Any]]) -> None:
         self._cache = events
         self._cache_date = cache_key

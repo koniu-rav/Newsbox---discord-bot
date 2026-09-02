@@ -50,9 +50,13 @@
 
 | Komenda | Wymagana Rola | Opis |
 | :--- | :--- | :--- |
-| `!briefing` / `!poranek` | Admin / Newsbox-vip | Pełny poranny raport makro (FX Majors, DXY, DAX, plan sesji). |
+| `!briefing` / `!poranek` | Admin / Newsbox-vip | Briefing dla aktualnie nadchodzącej sesji handlowej (Londyn, NY lub Azja). |
+| `!weekly` / `!tydzien` | Admin / Newsbox-vip | 🗓️ Strategiczny plan i horyzont makro na cały nadchodzący tydzień (Niedziela 10:00). |
+| `!london` / `!londyn` | Admin / Newsbox-vip | 🇬🇧 Briefing Sesji Londyńskiej (07:00 CET — 1h przed pre-marketem Europy/DAX). |
+| `!ny` / `!nowyjork` | Admin / Newsbox-vip | 🇺🇸 Briefing Sesji Nowojorskiej (13:30 CET — 1h przed danymi USA i Wall St). |
+| `!asia` / `!azja` | Admin / Newsbox-vip | 🇯🇵 Briefing Sesji Azjatyckiej (23:00 CET — 1h przed sesją Tokio/Sydney). |
 | `!briefing <walor>` | Admin / Newsbox-vip | Dedykowana analiza dla 1 wybranego waloru (np. `!briefing DAX`, `!briefing BTC`). |
-| `!accuracy` / `!skutecznosc` | Admin / Newsbox-vip | Raport skuteczności: globalny counter, punktacja briefu i wnioski AI. |
+| `!accuracy` / `!skutecznosc` | Admin / Newsbox-vip | 📊 Wielopoziomowy raport skuteczności: Globalny, Tygodniowy i Rozbicie na Sesje. |
 | `!portfolio` / `!portfel` | Admin / Newsbox-vip | Wyświetla podgląd Twoich spółek, notowania i podsumowanie AI. |
 | `!portfolio add <symbol>` | Admin / Newsbox-vip | Dodaje spółkę do portfela (np. `!portfolio add CDR.WA`, `!portfolio add NVDA`). |
 | `!portfolio remove <symbol>`| Admin / Newsbox-vip | Usuwa spółkę z portfela (np. `!portfolio remove TSLA`). |

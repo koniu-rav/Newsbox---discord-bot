@@ -1,62 +1,64 @@
-"""Main Discord bot client class for Newsbox with VIP role and administrator authorization."""
+"""Main Discord Bot application class for Newsbox with multi-session dispatching and authorization."""
 
-import asyncio
+import sys
 from typing import Optional
 import discord
 from discord.ext import commands
 
-from newsbox.cogs import COGS
 from newsbox.config import get_settings
 from newsbox.services.scheduler_service import SchedulerService
-from newsbox.services.state_service import get_state_manager
+from newsbox.services.state_service import StateManager
 from newsbox.utils.logger import setup_logger
 
-logger = setup_logger(__name__)
+logger = setup_logger("newsbox")
+
+COGS = [
+    "newsbox.cogs.briefings",
+    "newsbox.cogs.news",
+    "newsbox.cogs.portfolio",
+    "newsbox.cogs.channels",
+    "newsbox.cogs.admin",
+]
 
 
 class NewsboxBot(commands.Bot):
-    """Newsbox Discord bot orchestrating scheduled briefings, calendar dispatches, and accuracy evaluations."""
+    """Newsbox automated market analysis, economic calendar, and news Discord bot."""
 
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.state_manager = get_state_manager()
+        self.state_manager = StateManager()
+
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.guilds = True
 
         super().__init__(
-            command_prefix=self.settings.discord_command_prefix,
-            description="Newsbox — Inteligentny asystent rynkowy i briefingi makro dla społeczności we.trade",
+            command_prefix=commands.when_mentioned_or(self.settings.command_prefix),
             intents=intents,
-            help_command=commands.DefaultHelpCommand(),
+            help_command=None,
+            description="Newsbox by we.trade • Społeczność Inwestorów & Traderów",
         )
 
         self.scheduler = SchedulerService()
-        # Register global permission check: Admin or VIP Role required
+
+        # Add global authorization check
         self.add_check(self.check_admin_or_vip)
 
     async def check_admin_or_vip(self, ctx: commands.Context) -> bool:
-        """Global authorization check: allow only Administrators and users with the Newsbox-vip role."""
-        # 1. Allow application / bot owner
-        try:
-            if await self.is_owner(ctx.author):
-                return True
-        except Exception:
-            pass
-
-        # 2. In DMs: require server context
-        if not ctx.guild:
-            raise commands.CheckFailure("⛔ Komendy bota Newsbox można uruchamiać wyłącznie na serwerze Discord.")
-
-        # 3. Allow Server Owner
-        if ctx.guild.owner_id == ctx.author.id:
+        """Global check restricting bot usage to Administrators and users with the Newsbox-vip role."""
+        if await self.is_owner(ctx.author):
             return True
 
-        # 4. Allow Discord Administrators
-        perms = getattr(ctx.author, "guild_permissions", None)
-        if perms and getattr(perms, "administrator", False):
+        if ctx.guild is None:
             return True
 
-        # 5. Allow users with the configured VIP role (e.g. 'Newsbox-vip')
+        if ctx.author == ctx.guild.owner:
+            return True
+
+        permissions = getattr(ctx.author, "guild_permissions", None)
+        if permissions and (permissions.administrator or permissions.manage_guild):
+            return True
+
         vip_target = self.settings.vip_role_name.lower().strip()
         user_roles = getattr(ctx.author, "roles", [])
         if any(r.name.lower().strip() == vip_target for r in user_roles):
@@ -75,16 +77,28 @@ class NewsboxBot(commands.Bot):
             except Exception as e:
                 logger.error("Failed to load extension %s: %s", extension, e, exc_info=True)
 
-        # 1. Schedule 7:00 AM Economic Calendar (Mon-Fri)
+        # 1. Schedule Sunday 10:00 AM Weekly Strategic Outlook
+        self.scheduler.schedule_weekly_outlook(self.dispatch_scheduled_weekly_outlook, day_of_week="sun", hour=10, minute=0)
+
+        # 2. Schedule Mon-Fri 07:00 AM Economic Calendar & London Session Briefing (1h before pre-market)
         self.scheduler.schedule_daily_calendar(self.dispatch_scheduled_calendar)
+        self.scheduler.schedule_session_briefing("london", self.dispatch_scheduled_london_briefing, hour=7, minute=0)
 
-        # 2. Schedule 8:00 AM Macro & FX/DAX Briefing (Mon-Fri)
-        self.scheduler.schedule_daily_briefing(self.dispatch_scheduled_macro_briefing)
+        # 3. Schedule Mon-Fri 13:30 PM New York Session Briefing (1h before pre-market/data)
+        self.scheduler.schedule_session_briefing("newyork", self.dispatch_scheduled_ny_briefing, hour=13, minute=30)
 
-        # 3. Schedule 12:30 PM Accuracy & Performance Evaluation (Mon-Fri)
-        self.scheduler.schedule_daily_accuracy(self.dispatch_scheduled_accuracy)
+        # 4. Schedule Mon-Fri 23:00 PM Asia Session Briefing (1h before pre-market)
+        self.scheduler.schedule_session_briefing("asia", self.dispatch_scheduled_asia_briefing, hour=23, minute=0)
 
-        # 4. Schedule Periodic 30-Minute Global Flash News (:00 and :30)
+        # 5. Schedule Mon-Fri Session Accuracy Evaluations
+        # London evaluated at 17:30 CET (close of European cash)
+        self.scheduler.schedule_session_evaluation("london", self.dispatch_scheduled_london_eval, hour=17, minute=30)
+        # New York evaluated at 22:00 CET (Wall St close)
+        self.scheduler.schedule_session_evaluation("newyork", self.dispatch_scheduled_ny_eval, hour=22, minute=0)
+        # Asia evaluated at 07:00 CET next morning
+        self.scheduler.schedule_session_evaluation("asia", self.dispatch_scheduled_asia_eval, hour=7, minute=0)
+
+        # 6. Schedule Periodic 30-Minute Global Flash News (:00 and :30)
         self.scheduler.schedule_periodic_flash_news(self.dispatch_scheduled_flash_news)
 
         self.scheduler.start()
@@ -98,12 +112,95 @@ class NewsboxBot(commands.Bot):
         )
         await self.change_presence(activity=activity)
 
+    async def dispatch_scheduled_weekly_outlook(self) -> None:
+        """Executed automatically on Sunday at 10:00 AM to dispatch Strategic Weekly Outlook."""
+        logger.info("Triggering scheduled Sunday 10:00 AM Weekly Strategic Outlook dispatch...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            return
+        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
+        if macro_ch_id:
+            channel = await self._resolve_channel(macro_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_weekly_outlook(channel)
+
+    async def dispatch_scheduled_london_briefing(self) -> None:
+        """Executed automatically at 07:00 AM to dispatch London session briefing."""
+        logger.info("Triggering scheduled 07:00 AM London session briefing dispatch...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            return
+        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
+        if macro_ch_id:
+            channel = await self._resolve_channel(macro_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_session_briefing(channel, session_key="london", is_scheduled=True)
+
+    async def dispatch_scheduled_ny_briefing(self) -> None:
+        """Executed automatically at 13:30 PM to dispatch New York session briefing."""
+        logger.info("Triggering scheduled 13:30 PM New York session briefing dispatch...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            return
+        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
+        if macro_ch_id:
+            channel = await self._resolve_channel(macro_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_session_briefing(channel, session_key="newyork", is_scheduled=True)
+
+    async def dispatch_scheduled_asia_briefing(self) -> None:
+        """Executed automatically at 23:00 PM to dispatch Asia session briefing."""
+        logger.info("Triggering scheduled 23:00 PM Asia session briefing dispatch...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            return
+        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
+        if macro_ch_id:
+            channel = await self._resolve_channel(macro_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_session_briefing(channel, session_key="asia", is_scheduled=True)
+
+    async def dispatch_scheduled_london_eval(self) -> None:
+        """Executed at 17:30 PM to evaluate London session accuracy."""
+        logger.info("Triggering scheduled 17:30 PM London session accuracy evaluation...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            return
+        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
+        if macro_ch_id:
+            channel = await self._resolve_channel(macro_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_session_accuracy(channel, session_key="london")
+
+    async def dispatch_scheduled_ny_eval(self) -> None:
+        """Executed at 22:00 PM to evaluate New York session accuracy."""
+        logger.info("Triggering scheduled 22:00 PM New York session accuracy evaluation...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            return
+        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
+        if macro_ch_id:
+            channel = await self._resolve_channel(macro_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_session_accuracy(channel, session_key="newyork")
+
+    async def dispatch_scheduled_asia_eval(self) -> None:
+        """Executed at 07:00 AM to evaluate Asia session accuracy."""
+        logger.info("Triggering scheduled 07:00 AM Asia session accuracy evaluation...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            return
+        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
+        if macro_ch_id:
+            channel = await self._resolve_channel(macro_ch_id)
+            if channel:
+                await briefings_cog.compile_and_send_session_accuracy(channel, session_key="asia")
+
     async def dispatch_scheduled_calendar(self) -> None:
         """Executed automatically at 7:00 AM to dispatch Economic Calendar to designated channel."""
         logger.info("Triggering scheduled 7:00 AM economic calendar dispatch...")
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
         if not briefings_cog:
-            logger.error("BriefingsCog not found during scheduled calendar dispatch.")
             return
 
         cal_ch_id = (
@@ -117,47 +214,12 @@ class NewsboxBot(commands.Bot):
             channel = await self._resolve_channel(cal_ch_id)
             if channel:
                 await briefings_cog.compile_and_send_calendar_briefing(channel)
-        else:
-            logger.warning("No channel configured for 7:00 AM calendar dispatch.")
-
-    async def dispatch_scheduled_macro_briefing(self) -> None:
-        """Executed automatically at 8:00 AM to dispatch morning macro report to designated channel."""
-        logger.info("Triggering scheduled 8:00 AM macro briefing dispatch...")
-        briefings_cog = self.get_cog("Briefings & Trader Advisory")
-        if not briefings_cog:
-            logger.error("BriefingsCog not found during scheduled macro dispatch.")
-            return
-
-        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
-        if macro_ch_id:
-            channel = await self._resolve_channel(macro_ch_id)
-            if channel:
-                await briefings_cog.compile_and_send_macro_briefing(channel, is_scheduled=True)
-        else:
-            logger.warning("No channel configured for 8:00 AM macro briefing dispatch.")
-
-    async def dispatch_scheduled_accuracy(self) -> None:
-        """Executed automatically at 12:30 PM to evaluate briefing accuracy and send performance report."""
-        logger.info("Triggering scheduled 12:30 PM accuracy evaluation dispatch...")
-        briefings_cog = self.get_cog("Briefings & Trader Advisory")
-        if not briefings_cog:
-            logger.error("BriefingsCog not found during scheduled accuracy dispatch.")
-            return
-
-        target_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
-        if target_ch_id:
-            channel = await self._resolve_channel(target_ch_id)
-            if channel:
-                await briefings_cog.compile_and_send_accuracy_report(channel)
-        else:
-            logger.warning("No channel configured for 12:30 PM accuracy dispatch.")
 
     async def dispatch_scheduled_flash_news(self) -> None:
         """Executed automatically every 30 minutes to dispatch 2-3 sentence global flash news to channel 1544598484961722409."""
         logger.info("Triggering periodic 30-minute global flash news dispatch...")
         news_cog = self.get_cog("News Feed")
         if not news_cog:
-            logger.error("NewsCog not found during 30-minute flash news dispatch.")
             return
 
         flash_ch_id = (
@@ -170,8 +232,6 @@ class NewsboxBot(commands.Bot):
             channel = await self._resolve_channel(flash_ch_id)
             if channel:
                 await news_cog.compile_and_send_flash_news(channel)
-        else:
-            logger.warning("No channel configured for 30-minute flash news dispatch.")
 
     async def _resolve_channel(self, channel_id: int) -> Optional[discord.abc.Messageable]:
         """Fetch or get channel by ID."""
@@ -204,8 +264,3 @@ class NewsboxBot(commands.Bot):
             await ctx.send(embed=create_error_embed(err_title, err_msg))
         except Exception:
             pass
-
-    async def close(self) -> None:
-        """Gracefully shut down scheduler and bot connection."""
-        self.scheduler.shutdown()
-        await super().close()
