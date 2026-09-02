@@ -150,6 +150,21 @@ try:
             return parse_quiet_windows(self.session_quiet_windows)
 
         @property
+        def command_prefix(self) -> str:
+            """Command prefix alias."""
+            return self.discord_command_prefix
+
+        @property
+        def bot_token(self) -> str:
+            """Bot token alias."""
+            return self.discord_bot_token
+
+        @property
+        def guild_id(self) -> Optional[int]:
+            """Guild ID alias."""
+            return self.discord_guild_id
+
+        @property
         def macro_channel_id(self) -> Optional[int]:
             """Resolved macro briefing channel ID."""
             return self.discord_macro_channel_id or self.discord_briefing_channel_id
@@ -234,6 +249,21 @@ except ImportError:
         def quiet_windows(self) -> List[Tuple[time, time]]:
             """Parsed list of session quiet windows (start_time, end_time)."""
             return parse_quiet_windows(self.session_quiet_windows)
+
+        @property
+        def command_prefix(self) -> str:
+            """Command prefix alias."""
+            return self.discord_command_prefix
+
+        @property
+        def bot_token(self) -> str:
+            """Bot token alias."""
+            return self.discord_bot_token
+
+        @property
+        def guild_id(self) -> Optional[int]:
+            """Guild ID alias."""
+            return self.discord_guild_id
 
         @property
         def macro_channel_id(self) -> Optional[int]:
