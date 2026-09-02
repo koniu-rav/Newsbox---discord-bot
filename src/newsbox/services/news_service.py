@@ -84,6 +84,7 @@ class NewsService:
 
     def __init__(self) -> None:
         self.settings = get_settings()
+        self._seen_news_keys: set = set()
 
     def is_in_quiet_window(self, check_time: Optional[datetime] = None) -> bool:
         """Check whether current time falls within market open quiet windows."""
@@ -93,6 +94,47 @@ class NewsService:
             if start_t <= current_time <= end_t:
                 return True
         return False
+
+    async def fetch_flash_breaking_news(self, limit: int = 2) -> List[Dict[str, Any]]:
+        """Fetch fresh, unseen global breaking news for 30-minute flash bulletins."""
+        # Aggregate global and USA top news feeds
+        raw_news = await self.fetch_regional_news(region="GLOBAL", limit=10)
+        if len(raw_news) < 4:
+            usa_news = await self.fetch_regional_news(region="USA", limit=5)
+            raw_news.extend(usa_news)
+
+        unseen_items: List[Dict[str, Any]] = []
+        for item in raw_news:
+            title = item.get("title", "").strip()
+            url = item.get("url", "").strip()
+            key = url or title
+            if not key:
+                continue
+
+            if key not in self._seen_news_keys:
+                unseen_items.append(item)
+
+        # If we found fresh unseen news
+        if unseen_items:
+            selected = unseen_items[:limit]
+            for item in selected:
+                k = item.get("url", "") or item.get("title", "")
+                self._seen_news_keys.add(k)
+
+            # Prevent unbounded set growth
+            if len(self._seen_news_keys) > 500:
+                # Keep only latest 200 items
+                self._seen_news_keys = set(list(self._seen_news_keys)[-200:])
+
+            logger.info("Found %d fresh unseen global news items for 30-min flash", len(selected))
+            return selected
+
+        # If all latest news were already seen, pick the single freshest global news item
+        if raw_news:
+            logger.debug("No new unseen headlines; using freshest top global headline")
+            return [raw_news[0]]
+
+        return []
 
     async def fetch_crypto_news(self, limit: int = 8) -> List[Dict[str, Any]]:
         """Fetch dedicated news from cryptocurrency and blockchain sources."""

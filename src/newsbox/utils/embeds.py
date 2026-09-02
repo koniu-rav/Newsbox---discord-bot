@@ -251,6 +251,41 @@ def create_regional_news_embed(
     return embed
 
 
+def create_flash_news_embed(
+    flash_summary: str,
+    headlines: List[Dict[str, Any]],
+    time_str: Optional[str] = None,
+) -> discord.Embed:
+    """Build the 30-minute Global Flash News embed (2-3 sentences: what, when, impact)."""
+    t_str = time_str or datetime.utcnow().strftime("%H:%M CET")
+    embed = discord.Embed(
+        title=f"⚡ Flash News Ze Świata ({t_str}) • we.trade",
+        description=truncate(flash_summary, MAX_DESCRIPTION_LENGTH),
+        color=0x00B4D8,  # Vibrant Cyan / Blue
+        timestamp=datetime.utcnow(),
+    )
+
+    source_links = []
+    for h in headlines[:3]:
+        title = truncate(h.get("title", ""), 100)
+        url = h.get("url", "")
+        source = h.get("source", "Global News")
+        if url:
+            source_links.append(f"🔗 [{title}]({url}) *({source})*")
+        else:
+            source_links.append(f"• {title} *({source})*")
+
+    if source_links:
+        embed.add_field(
+            name="🌐 Źródła & Doniesienia",
+            value=truncate("\n".join(source_links), MAX_FIELD_LENGTH),
+            inline=False,
+        )
+
+    embed.set_footer(text=BRAND_FOOTER)
+    return embed
+
+
 def create_error_embed(title: str, description: str) -> discord.Embed:
     """Build standardized error notification embed."""
     embed = discord.Embed(

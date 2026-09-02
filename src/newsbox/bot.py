@@ -84,6 +84,9 @@ class NewsboxBot(commands.Bot):
         # 3. Schedule 12:30 PM Accuracy & Performance Evaluation (Mon-Fri)
         self.scheduler.schedule_daily_accuracy(self.dispatch_scheduled_accuracy)
 
+        # 4. Schedule Periodic 30-Minute Global Flash News (:00 and :30)
+        self.scheduler.schedule_periodic_flash_news(self.dispatch_scheduled_flash_news)
+
         self.scheduler.start()
 
     async def on_ready(self) -> None:
@@ -148,6 +151,27 @@ class NewsboxBot(commands.Bot):
                 await briefings_cog.compile_and_send_accuracy_report(channel)
         else:
             logger.warning("No channel configured for 12:30 PM accuracy dispatch.")
+
+    async def dispatch_scheduled_flash_news(self) -> None:
+        """Executed automatically every 30 minutes to dispatch 2-3 sentence global flash news to channel 1544598484961722409."""
+        logger.info("Triggering periodic 30-minute global flash news dispatch...")
+        news_cog = self.get_cog("News Feed")
+        if not news_cog:
+            logger.error("NewsCog not found during 30-minute flash news dispatch.")
+            return
+
+        flash_ch_id = (
+            self.state_manager.get_channel("news_global")
+            or self.settings.discord_news_global_channel_id
+            or 1544598484961722409
+        )
+
+        if flash_ch_id:
+            channel = await self._resolve_channel(flash_ch_id)
+            if channel:
+                await news_cog.compile_and_send_flash_news(channel)
+        else:
+            logger.warning("No channel configured for 30-minute flash news dispatch.")
 
     async def _resolve_channel(self, channel_id: int) -> Optional[discord.abc.Messageable]:
         """Fetch or get channel by ID."""

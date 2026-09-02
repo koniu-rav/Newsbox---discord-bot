@@ -64,6 +64,7 @@
 | `!news us` / `!news usa` | Admin / Newsbox-vip | Wiadomości z USA i Wall Street (CNBC, MarketWatch). |
 | `!news crypto` / `!crypto` | Admin / Newsbox-vip | Najświeższe wiadomości ze świata kryptowalut i Web3. |
 | `!news global` | Admin / Newsbox-vip | Rynki globalne, surowce i makro (Reuters, Euronews). |
+| `!flash` / `!flashnews` | Admin / Newsbox-vip | Błyskawiczna migawka newsowa AI (co, kiedy, wpływ na walory). |
 | `!set_channel <typ>` | Admin | Przypisuje kanał (`macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`, `portfolio_news`). |
 | `!channels` | Admin / Newsbox-vip | Wyświetla mapowanie kanałów powiadomień. |
 | `!reload_prompts` | Admin | Przeładowuje szablony promptów z folderu `prompts/` w locie. |

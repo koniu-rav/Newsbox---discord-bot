@@ -113,6 +113,26 @@ class SchedulerService:
             self.settings.briefing_timezone,
         )
 
+    def schedule_periodic_flash_news(
+        self,
+        flash_news_job: Callable[[], Coroutine[Any, Any, None]],
+        minute_cron: str = "0,30",
+    ) -> None:
+        """Register periodic 30-minute global flash news job (every :00 and :30)."""
+        trigger = CronTrigger(
+            minute=minute_cron,
+            timezone=self.settings.briefing_timezone,
+        )
+
+        self.scheduler.add_job(
+            flash_news_job,
+            trigger=trigger,
+            id="periodic_flash_news",
+            name="Every 30min Global Flash News",
+            replace_existing=True,
+        )
+        logger.info("Scheduled 30-minute Global Flash News (:00, :30 %s)", self.settings.briefing_timezone)
+
     def start(self) -> None:
         """Start the scheduler background loop."""
         if not self._is_running:

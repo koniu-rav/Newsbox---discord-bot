@@ -1,11 +1,16 @@
-"""News Cog - handles regional news commands (PL, USA, EU, Crypto, Global) and streaming."""
+"""News Cog - handles regional news commands (PL, USA, EU, Crypto, Global) and 30-minute flash news streaming."""
 
+from datetime import datetime
 import discord
 from discord.ext import commands
 from newsbox.config import get_settings
 from newsbox.services.gemini_service import GeminiService
 from newsbox.services.news_service import NewsService
-from newsbox.utils.embeds import create_crypto_news_embed, create_regional_news_embed
+from newsbox.utils.embeds import (
+    create_crypto_news_embed,
+    create_flash_news_embed,
+    create_regional_news_embed,
+)
 from newsbox.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -20,6 +25,32 @@ class NewsCog(commands.Cog, name="News Feed"):
         self.news_service = NewsService()
         self.gemini_service = GeminiService()
 
+    async def compile_and_send_flash_news(self, channel: discord.abc.Messageable) -> None:
+        """Fetch fresh breaking global headlines, generate 2-3 sentence AI flash update, and send to Discord."""
+        try:
+            # Check quiet window (market open: 08:50-09:15, 15:20-15:45)
+            if self.news_service.is_in_quiet_window():
+                logger.info("Skipping 30-minute flash news dispatch: Market Open quiet window active.")
+                return
+
+            headlines = await self.news_service.fetch_flash_breaking_news(limit=2)
+            if not headlines:
+                logger.info("No fresh breaking news to dispatch for 30-min flash.")
+                return
+
+            time_str = datetime.now().strftime("%H:%M CET")
+            flash_summary = await self.gemini_service.generate_flash_news_summary(headlines)
+
+            embed = create_flash_news_embed(
+                flash_summary=flash_summary,
+                headlines=headlines,
+                time_str=time_str,
+            )
+            await channel.send(embed=embed)
+            logger.info("Successfully dispatched 30-minute flash news to channel %s", channel)
+        except Exception as e:
+            logger.error("Failed to dispatch 30-minute flash news: %s", e, exc_info=True)
+
     @commands.command(name="news", aliases=["wiadomosci", "parkiet"])
     async def news_command(self, ctx: commands.Context, region: str = "ALL") -> None:
         """Pobierz najświeższe newsy biznesowe, giełdowe lub krypto.
@@ -33,7 +64,6 @@ class NewsCog(commands.Cog, name="News Feed"):
         - `!news global` - Rynki światowe, surowce i makro
         """
         async with ctx.typing():
-            # Check quiet window (e.g. 08:50-09:15 or 15:20-15:45)
             in_quiet = self.news_service.is_in_quiet_window()
             quiet_notice = (
                 "\n*⏳ Uwaga: Trwa okno otwarcia sesji giełdowej (Market Open). Zmienność może być podwyższona.*"
@@ -72,6 +102,12 @@ class NewsCog(commands.Cog, name="News Feed"):
                 summary_text=summary + quiet_notice if summary else quiet_notice,
             )
             await ctx.send(embed=embed)
+
+    @commands.command(name="flash", aliases=["flashnews", "migawka"])
+    async def flash_command(self, ctx: commands.Context) -> None:
+        """Ręcznie wygeneruj natychmiastową migawkę Flash News (2-3 zdania: co, kiedy, wpływ na walory)."""
+        async with ctx.typing():
+            await self.compile_and_send_flash_news(ctx.channel)
 
     @commands.command(name="crypto", aliases=["krypto"])
     async def crypto_news_shortcut(self, ctx: commands.Context) -> None:

@@ -76,3 +76,20 @@ def test_create_crypto_news_embed(sample_headlines):
     assert "Crypto & Blockchain Pulse" in embed.title
     assert "Bitcoin testuje lokalne wsparcie." in embed.description
     assert len(embed.fields) == 1
+
+
+def test_create_flash_news_embed():
+    """Test generating 30-minute flash news embed."""
+    from newsbox.utils.embeds import create_flash_news_embed
+
+    headlines = [
+        {"title": "Fed announces policy shift", "url": "https://example.com/news1", "source": "Reuters"},
+    ]
+    summary = "• **Co się wydarzyło**: Fed ogłosił zmianę polityki.\n• **Kiedy**: Przed chwilą.\n• **Wpływ**: Zmienność na DXY."
+    embed = create_flash_news_embed(flash_summary=summary, headlines=headlines, time_str="14:30 CET")
+
+    assert "Flash News Ze Świata (14:30 CET)" in embed.title
+    assert "we.trade" in embed.title
+    assert "Fed ogłosił zmianę" in embed.description
+    assert len(embed.fields) == 1
+    assert "example.com/news1" in embed.fields[0].value

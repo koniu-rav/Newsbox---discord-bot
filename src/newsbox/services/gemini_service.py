@@ -262,6 +262,33 @@ class GeminiService:
 
         return await self._call_gemini(prompt, fallback_msg="Podsumowanie newsów chwilowo niedostępne.")
 
+    async def generate_flash_news_summary(self, headlines: List[Dict[str, Any]]) -> str:
+        """Generate an ultra-concise 2-3 sentence flash bulletin (what happened, when, and asset impact)."""
+        if not self._client:
+            first_title = headlines[0].get("title", "Wydarzenie rynkowe") if headlines else "Bieżące doniesienia"
+            return (
+                f"• **Co się wydarzyło**: {first_title}.\n"
+                f"• **Kiedy**: Sesja bieżąca.\n"
+                f"• **Wpływ na walory**: Możliwa podwyższona zmienność na `DXY`, `EUR/USD` oraz indeksach giełdowych."
+            )
+
+        news_lines = [
+            f"- {h.get('title', '')} (Źródło: {h.get('source', '')}, Region: {h.get('region', '')})"
+            for h in headlines[:5]
+        ]
+        news_str = "\n".join(news_lines)
+
+        template = self.get_prompt_template(
+            "flash_news",
+            default="Podsumuj to wydarzenie w 2-3 zdaniach (co, kiedy, wpływ na walory):\n{headlines_str}"
+        )
+        prompt = template.format(headlines_str=news_str)
+
+        return await self._call_gemini(
+            prompt,
+            fallback_msg="Flash News: Podwyższona zmienność na rynkach po napływie najnowszych nagłówków.",
+        )
+
     async def evaluate_briefing_performance(
         self,
         yesterday_advisory: str,

@@ -10,6 +10,7 @@ from newsbox.utils.embeds import (
     create_regional_news_embed,
     create_error_embed,
     create_accuracy_embed,
+    create_flash_news_embed,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "create_regional_news_embed",
     "create_error_embed",
     "create_accuracy_embed",
+    "create_flash_news_embed",
 ]
