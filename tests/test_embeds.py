@@ -79,20 +79,31 @@ def test_create_crypto_news_embed(sample_headlines):
 
 
 def test_create_flash_news_embed():
-    """Test generating 30-minute flash news embed."""
+    """Test generating minimalist flash news embed with no title, no footer, and grouped portal sources."""
     from newsbox.utils.embeds import create_flash_news_embed
 
     headlines = [
-        {"title": "Fed announces policy shift", "url": "https://example.com/news1", "source": "Reuters"},
+        {"title": "US pounds Iran, Tehran strikes back at bases in biggest exchange since July", "url": "https://www.investing.com/news1", "source": "Investing.com"},
+        {"title": "Explainer-Why is Senegal reworking its debt and what makes it different?", "url": "https://www.investing.com/news2", "source": "Investing.com"},
     ]
-    summary = "• **Co się wydarzyło**: Fed ogłosił zmianę polityki.\n• **Kiedy**: Przed chwilą.\n• **Wpływ**: Zmienność na DXY."
-    embed = create_flash_news_embed(flash_summary=summary, headlines=headlines, time_str="14:30 CET")
+    summary = "📰 Doniesienia o eskalacji na Bliskim Wschodzie.\n🎯 Możliwy wzrost zmienności na `Ropa`, `Złoto` oraz `DXY`."
+    embed = create_flash_news_embed(flash_summary=summary, headlines=headlines)
 
-    assert "Flash News Ze Świata (14:30 CET)" in embed.title
-    assert "we.trade" in embed.title
-    assert "Fed ogłosił zmianę" in embed.description
+    # Must NOT have title or footer
+    assert embed.title is None
+    assert embed.footer.text is None
+    assert embed.timestamp is None
+
+    # Description must contain concise summary
+    assert "Doniesienia o eskalacji" in embed.description
     assert len(embed.fields) == 1
-    assert "example.com/news1" in embed.fields[0].value
+    assert "Źródła & Doniesienia" in embed.fields[0].name
+
+    # Grouped sources check: (Investing.com) should appear once at the end of the group
+    field_val = embed.fields[0].value
+    assert "https://www.investing.com/news1" in field_val
+    assert "https://www.investing.com/news2" in field_val
+    assert field_val.count("(Investing.com)") == 1
 
 
 def test_create_weekly_outlook_embed(sample_market_data):

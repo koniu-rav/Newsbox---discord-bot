@@ -346,13 +346,12 @@ class GeminiService:
         return await self._call_gemini(prompt, fallback_msg="Podsumowanie newsów chwilowo niedostępne.")
 
     async def generate_flash_news_summary(self, headlines: List[Dict[str, Any]]) -> str:
-        """Generate an ultra-concise 2-3 sentence flash bulletin (what happened, when, and asset impact)."""
+        """Generate an ultra-concise 2-bullet flash bulletin (📰 event summary, 🎯 asset impact)."""
         if not self._client:
-            first_title = headlines[0].get("title", "Wydarzenie rynkowe") if headlines else "Bieżące doniesienia"
+            first_title = headlines[0].get("title", "Wydarzenie rynkowe") if headlines else "Bieżące doniesienia ze świata"
             return (
-                f"• **Co się wydarzyło**: {first_title}.\n"
-                f"• **Kiedy**: Sesja bieżąca.\n"
-                f"• **Wpływ na walory**: Możliwa podwyższona zmienność na `DXY`, `EUR/USD` oraz indeksach giełdowych."
+                f"📰 {first_title}.\n"
+                f"🎯 Możliwa podwyższona zmienność na `DXY`, `EUR/USD`, `Złoto` oraz głównych indeksach giełdowych."
             )
 
         news_lines = [
@@ -363,13 +362,13 @@ class GeminiService:
 
         template = self.get_prompt_template(
             "flash_news",
-            default="Podsumuj to wydarzenie w 2-3 zdaniach (co, kiedy, wpływ na walory):\n{headlines_str}"
+            default="Podsumuj to wydarzenie w 2 punktach (📰 najważniejszy fakt, 🎯 wpływ na walory):\n{headlines_str}"
         )
         prompt = template.format(headlines_str=news_str)
 
         return await self._call_gemini(
             prompt,
-            fallback_msg="Flash News: Podwyższona zmienność na rynkach po napływie najnowszych nagłówków.",
+            fallback_msg="📰 Podwyższona zmienność na rynkach po napływie najnowszych nagłówków.\n🎯 Zwiększona uwaga na parach walutowych i indeksach.",
         )
 
     async def evaluate_session_performance(

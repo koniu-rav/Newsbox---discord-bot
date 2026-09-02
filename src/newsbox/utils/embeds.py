@@ -313,38 +313,65 @@ def create_regional_news_embed(
     return embed
 
 
+def format_grouped_source_links(headlines: List[Dict[str, Any]]) -> str:
+    """Group article links by news portal and format cleanly without repeating source names unnecessarily."""
+    from collections import defaultdict
+
+    grouped: Dict[str, List[Dict[str, str]]] = defaultdict(list)
+    for h in headlines:
+        source = h.get("source", "").strip() or "Global News"
+        title = truncate(h.get("title", "").strip(), 120)
+        url = h.get("url", "").strip()
+        if title:
+            grouped[source].append({"title": title, "url": url})
+
+    formatted_sections = []
+    for source, items in grouped.items():
+        if len(items) == 1:
+            it = items[0]
+            if it["url"]:
+                formatted_sections.append(f"[{it['title']}]({it['url']}) ({source})")
+            else:
+                formatted_sections.append(f"• {it['title']} ({source})")
+        else:
+            lines = []
+            for i, it in enumerate(items):
+                if i == len(items) - 1:
+                    # Last item in portal group includes the source tag
+                    if it["url"]:
+                        lines.append(f"[{it['title']}]({it['url']}) ({source})")
+                    else:
+                        lines.append(f"• {it['title']} ({source})")
+                else:
+                    if it["url"]:
+                        lines.append(f"[{it['title']}]({it['url']})")
+                    else:
+                        lines.append(f"• {it['title']}")
+            formatted_sections.append("\n".join(lines))
+
+    return "\n".join(formatted_sections)
+
+
 def create_flash_news_embed(
     flash_summary: str,
     headlines: List[Dict[str, Any]],
     time_str: Optional[str] = None,
 ) -> discord.Embed:
-    """Build the 30-minute Global Flash News embed (2-3 sentences: what, when, impact)."""
-    t_str = time_str or datetime.utcnow().strftime("%H:%M CET")
+    """Build minimalist Global Flash News embed (no title, no footer, no timestamp, grouped sources)."""
     embed = discord.Embed(
-        title=f"⚡ Flash News Ze Świata ({t_str}) • we.trade",
         description=truncate(flash_summary, MAX_DESCRIPTION_LENGTH),
         color=0x00B4D8,  # Vibrant Cyan / Blue
-        timestamp=datetime.utcnow(),
     )
 
-    source_links = []
-    for h in headlines[:3]:
-        title = truncate(h.get("title", ""), 100)
-        url = h.get("url", "")
-        source = h.get("source", "Global News")
-        if url:
-            source_links.append(f"🔗 [{title}]({url}) *({source})*")
-        else:
-            source_links.append(f"• {title} *({source})*")
+    if headlines:
+        sources_text = format_grouped_source_links(headlines[:4])
+        if sources_text:
+            embed.add_field(
+                name="🌐 Źródła & Doniesienia",
+                value=truncate(sources_text, MAX_FIELD_LENGTH),
+                inline=False,
+            )
 
-    if source_links:
-        embed.add_field(
-            name="🌐 Źródła & Doniesienia",
-            value=truncate("\n".join(source_links), MAX_FIELD_LENGTH),
-            inline=False,
-        )
-
-    embed.set_footer(text=BRAND_FOOTER)
     return embed
 
 

@@ -18,14 +18,14 @@ REGIONAL_FEEDS = {
         {"name": "Puls Biznesu", "url": "https://www.pb.pl/rss"},
     ],
     "USA": [
-        {"name": "CNBC Top News", "url": "https://search.cnbc.com/rs/search/combinedList/view.xml?partnerId=wrss01&id=100003114"},
-        {"name": "MarketWatch Top", "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories"},
+        {"name": "MarketWatch", "url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines"},
+        {"name": "CNBC", "url": "https://search.cnbc.com/rs/search/combinedList/view.xml?partnerId=wrss01&id=100003114"},
         {"name": "Yahoo Finance", "url": "https://finance.yahoo.com/news/rssindex"},
     ],
     "EU": [
-        {"name": "Euronews Business", "url": "https://www.euronews.com/rss?format=mrss&level=theme&name=business"},
+        {"name": "Euronews", "url": "https://www.euronews.com/rss?format=mrss&level=theme&name=business"},
         {"name": "ECB Press", "url": "https://www.ecb.europa.eu/rss/press.html"},
-        {"name": "Investing.com Germany", "url": "https://de.investing.com/rss/news.rss"},
+        {"name": "Investing.com", "url": "https://de.investing.com/rss/news.rss"},
     ],
     "CRYPTO": [
         {"name": "CoinDesk", "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
@@ -33,8 +33,10 @@ REGIONAL_FEEDS = {
         {"name": "Decrypt", "url": "https://decrypt.co/feed"},
     ],
     "GLOBAL": [
-        {"name": "Reuters Business", "url": "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best"},
+        {"name": "Investing.com", "url": "https://www.investing.com/rss/news_25.rss"},
         {"name": "Investing.com", "url": "https://www.investing.com/rss/news.rss"},
+        {"name": "MarketWatch", "url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines"},
+        {"name": "Reuters", "url": "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best"},
     ],
 }
 
@@ -96,15 +98,26 @@ class NewsService:
         return False
 
     async def fetch_flash_breaking_news(self, limit: int = 2) -> List[Dict[str, Any]]:
-        """Fetch fresh, unseen global breaking news for 30-minute flash bulletins."""
-        # Aggregate global and USA top news feeds
-        raw_news = await self.fetch_regional_news(region="GLOBAL", limit=10)
-        if len(raw_news) < 4:
-            usa_news = await self.fetch_regional_news(region="USA", limit=5)
-            raw_news.extend(usa_news)
+        """Fetch fresh, unseen global breaking news for flash bulletins, sorted strictly by latest publication timestamp."""
+        # Aggregate global and USA top breaking news feeds
+        raw_news = await self.fetch_regional_news(region="GLOBAL", limit=20)
+        usa_news = await self.fetch_regional_news(region="USA", limit=15)
+        combined = raw_news + usa_news
+
+        # Sort strictly newest first
+        combined.sort(key=lambda x: x.get("published_ts", 0.0), reverse=True)
+
+        # Deduplicate
+        deduped = []
+        seen = set()
+        for item in combined:
+            title_key = item["title"].lower().strip()
+            if title_key not in seen and len(title_key) > 5:
+                seen.add(title_key)
+                deduped.append(item)
 
         unseen_items: List[Dict[str, Any]] = []
-        for item in raw_news:
+        for item in deduped:
             title = item.get("title", "").strip()
             url = item.get("url", "").strip()
             key = url or title
@@ -123,16 +136,15 @@ class NewsService:
 
             # Prevent unbounded set growth
             if len(self._seen_news_keys) > 500:
-                # Keep only latest 200 items
                 self._seen_news_keys = set(list(self._seen_news_keys)[-200:])
 
-            logger.info("Found %d fresh unseen global news items for 30-min flash", len(selected))
+            logger.info("Found %d fresh unseen global news items for flash news", len(selected))
             return selected
 
-        # If all latest news were already seen, pick the single freshest global news item
-        if raw_news:
+        # If all latest news were already seen, pick the single freshest top global headline
+        if deduped:
             logger.debug("No new unseen headlines; using freshest top global headline")
-            return [raw_news[0]]
+            return [deduped[0]]
 
         return []
 
@@ -308,6 +320,9 @@ class NewsService:
         if not all_news:
             all_news = self._get_fallback_headlines(region_upper)
 
+        # Sort strictly by newest publication timestamp first
+        all_news.sort(key=lambda x: x.get("published_ts", 0.0), reverse=True)
+
         # Deduplicate by title
         deduped = []
         seen = set()
@@ -320,23 +335,41 @@ class NewsService:
         return deduped[:limit]
 
     async def _fetch_feed(self, region: str, source_name: str, url: str) -> List[Dict[str, Any]]:
-        """Fetch and parse a single RSS feed."""
+        """Fetch and parse a single RSS feed with timestamp extraction."""
+        import calendar
+        import time
         import feedparser
 
         try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/rss+xml, application/xml, text/xml, */*",
+            }
             async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=5),
-                headers={"User-Agent": "NewsboxBot/0.1.0"},
+                timeout=aiohttp.ClientTimeout(total=6),
+                headers=headers,
             ) as session:
                 async with session.get(url) as response:
                     if response.status == 200:
                         content = await response.text()
                         feed = feedparser.parse(content)
                         parsed_items = []
-                        for entry in feed.entries[:8]:
+                        for entry in feed.entries[:12]:
                             title = getattr(entry, "title", "").strip()
                             link = getattr(entry, "link", "")
                             summary = getattr(entry, "summary", "").strip()
+
+                            # Parse published epoch timestamp
+                            published_ts = 0.0
+                            time_struct = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
+                            if time_struct:
+                                try:
+                                    published_ts = float(calendar.timegm(time_struct))
+                                except Exception:
+                                    published_ts = time.time()
+                            else:
+                                published_ts = time.time()
+
                             if title:
                                 parsed_items.append({
                                     "title": title,
@@ -344,6 +377,7 @@ class NewsService:
                                     "source": source_name,
                                     "region": region,
                                     "summary": summary[:200] if summary else "",
+                                    "published_ts": published_ts,
                                 })
                         return parsed_items
         except Exception as e:
