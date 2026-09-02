@@ -24,6 +24,7 @@ class NewsCog(commands.Cog, name="News Feed"):
         self.settings = get_settings()
         self.news_service = NewsService()
         self.gemini_service = GeminiService()
+        self.last_flash_audit: Optional[Dict[str, Any]] = None
 
     async def compile_and_send_flash_news(
         self,
@@ -34,42 +35,78 @@ class NewsCog(commands.Cog, name="News Feed"):
         If news is assessed as LOW importance, publication is skipped automatically.
         """
         try:
+            from zoneinfo import ZoneInfo
+            now_warsaw = datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%H:%M:%S CET")
+
             # Check quiet window (market open: 08:50-09:15, 15:20-15:45)
             if not is_manual and self.news_service.is_in_quiet_window():
                 logger.info("Skipping flash news dispatch: Market Open quiet window active.")
+                self.last_flash_audit = {
+                    "time": now_warsaw,
+                    "headline": "Brak (okno otwarcia rynku)",
+                    "importance": "SKIPPED",
+                    "action": "⏸️ Pominięto: Trwa okno otwarcia sesji giełdowej (Market Open quiet window).",
+                }
                 return
 
             headlines = await self.news_service.fetch_flash_breaking_news(limit=2)
             if not headlines:
                 logger.info("No fresh breaking news to dispatch for flash.")
+                self.last_flash_audit = {
+                    "time": now_warsaw,
+                    "headline": "Brak nowych artykułów",
+                    "importance": "NO_NEWS",
+                    "action": "ℹ️ Pominięto: Brak świeżych, nieopublikowanych doniesień w tej chwili.",
+                }
                 if is_manual:
                     await channel.send("ℹ️ Brak świeżych, nieopublikowanych doniesień rynkowych w tej chwili.")
                 return
+
+            main_headline = headlines[0].get("title", "")
+            main_source = headlines[0].get("source", "Global")
 
             flash_data = await self.gemini_service.generate_flash_news_summary(headlines)
 
             # Skip publication if news is unimportant / noise
             if not flash_data or flash_data.get("importance") == "LOW" or not flash_data.get("summary"):
-                logger.info("Flash news skipped: AI evaluated market importance as LOW / irrelevant.")
+                logger.info("Flash news skipped: AI evaluated '%s' as LOW importance / noise.", main_headline)
+                self.last_flash_audit = {
+                    "time": now_warsaw,
+                    "headline": main_headline,
+                    "source": main_source,
+                    "importance": "LOW",
+                    "action": "⚪ Pominięto: AI oceniło news jako nieważny / szum bez istotnego wpływu na rynki.",
+                }
                 if is_manual:
                     # For manual commands, send standard medium fallback
-                    first_title = headlines[0].get("title", "Wydarzenie rynkowe")
                     embed = create_flash_news_embed(
-                        flash_summary=f"📰 {first_title}.\n🎯 Brak bezpośredniego, gwałtownego wpływu na rynki bazowe.",
+                        flash_summary=f"📰 {main_headline}.\n🎯 Brak bezpośredniego, gwałtownego wpływu na rynki bazowe.",
                         headlines=headlines,
                         importance="MEDIUM",
                     )
                     await channel.send(embed=embed)
                 return
 
+            importance = flash_data.get("importance", "MEDIUM")
+            header = flash_data.get("header")
+
+            self.last_flash_audit = {
+                "time": now_warsaw,
+                "headline": main_headline,
+                "source": main_source,
+                "importance": importance,
+                "header": header,
+                "action": f"{'🔴 Opublikowano (Alert PILNE)' if importance == 'HIGH' else '🔵 Opublikowano (Standardowy)'}",
+            }
+
             embed = create_flash_news_embed(
                 flash_summary=flash_data.get("summary", ""),
                 headlines=headlines,
-                header=flash_data.get("header"),
-                importance=flash_data.get("importance", "MEDIUM"),
+                header=header,
+                importance=importance,
             )
             await channel.send(embed=embed)
-            logger.info("Successfully dispatched flash news (importance=%s) to %s", flash_data.get("importance"), channel)
+            logger.info("Successfully dispatched flash news (importance=%s) to %s: %s", importance, channel, main_headline)
         except Exception as e:
             logger.error("Failed to dispatch flash news: %s", e, exc_info=True)
 
@@ -126,8 +163,24 @@ class NewsCog(commands.Cog, name="News Feed"):
             await ctx.send(embed=embed)
 
     @commands.command(name="flash", aliases=["flashnews", "migawka"])
-    async def flash_command(self, ctx: commands.Context) -> None:
-        """Ręcznie wygeneruj natychmiastową migawkę Flash News z oceną wagi rynkowej."""
+    async def flash_command(self, ctx: commands.Context, sub_arg: Optional[str] = None) -> None:
+        """Ręcznie wygeneruj natychmiastową migawkę Flash News lub sprawdź status ostatniej oceny AI (`!flash status`)."""
+        if sub_arg and sub_arg.lower().strip() in ["status", "log", "debug", "check"]:
+            if not self.last_flash_audit:
+                await ctx.send("ℹ️ Bot nie przeprowadził jeszcze żadnej automatycznej oceny Flash News od ostatniego restartu.")
+                return
+
+            embed = discord.Embed(
+                title="🔍 Status Ostatniej Oceny Flash News • AI Audit",
+                color=0x3498DB,
+            )
+            embed.add_field(name="⏰ Czas sprawdzenia", value=f"`{self.last_flash_audit.get('time', 'N/A')}`", inline=True)
+            embed.add_field(name="🏷️ Ocena Wagi AI", value=f"`{self.last_flash_audit.get('importance', 'N/A')}`", inline=True)
+            embed.add_field(name="📰 Sprawdzony Nagłówek", value=f"• {self.last_flash_audit.get('headline', 'Brak')} *({self.last_flash_audit.get('source', '')})*", inline=False)
+            embed.add_field(name="⚡ Podjęta Akcja", value=self.last_flash_audit.get("action", "Brak"), inline=False)
+            await ctx.send(embed=embed)
+            return
+
         async with ctx.typing():
             await self.compile_and_send_flash_news(ctx.channel, is_manual=True)
 
