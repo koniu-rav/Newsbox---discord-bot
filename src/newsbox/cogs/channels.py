@@ -56,11 +56,14 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             "polska": "🇵🇱 Wiadomości z Polski & Parkiet GPW",
             "gpw": "🇵🇱 Wiadomości z Polski & Parkiet GPW",
             "parkiet": "🇵🇱 Wiadomości z Polski & Parkiet GPW",
-            "news_global": "🌐 Wiadomości Światowe & USA",
-            "global": "🌐 Wiadomości Światowe & USA",
-            "us": "🌐 Wiadomości Światowe & USA",
-            "usa": "🌐 Wiadomości Światowe & USA",
-            "swiat": "🌐 Wiadomości Światowe & USA",
+            "news_global": "🌐 Wiadomości Światowe & USA / Flash News",
+            "global": "🌐 Wiadomości Światowe & USA / Flash News",
+            "us": "🌐 Wiadomości Światowe & USA / Flash News",
+            "usa": "🌐 Wiadomości Światowe & USA / Flash News",
+            "swiat": "🌐 Wiadomości Światowe & USA / Flash News",
+            "flash": "⚡ Flash News Ze Świata (Auto :25, :55)",
+            "flash_news": "⚡ Flash News Ze Świata (Auto :25, :55)",
+            "flashnews": "⚡ Flash News Ze Świata (Auto :25, :55)",
             "crypto": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
             "krypto": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
             "crypto-chat": "🪙 Dedykowany Kanał Krypto (#crypto-chat)",
@@ -74,7 +77,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
 
         if c_type not in type_descriptions:
             await ctx.send(
-                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `news_pl`, `news_global`, `crypto`, `portfolio`, `portfolio_news`."
+                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `news_pl`, `news_global` / `flash`, `crypto`, `portfolio`, `portfolio_news`."
             )
             return
 
@@ -84,7 +87,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             canonical_key = "calendar"
         elif c_type in ["news_pl", "pl", "polska", "gpw", "parkiet"]:
             canonical_key = "news_pl"
-        elif c_type in ["news_global", "global", "us", "usa", "swiat"]:
+        elif c_type in ["news_global", "global", "us", "usa", "swiat", "flash", "flash_news", "flashnews"]:
             canonical_key = "news_global"
         elif c_type in ["crypto", "krypto", "crypto-chat", "btc"]:
             canonical_key = "crypto"
@@ -113,13 +116,18 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             return f"<#{ch_id}>" if ch_id else "*Brak (nieustawiony)*"
 
         embed.add_field(
-            name="🌅 Raport Makro (8:00 AM)",
+            name="🌅 Raporty Makro & Sesyjne (Londyn, NY, Azja)",
             value=ch_mention(channels.get("macro") or self.settings.macro_channel_id),
             inline=False,
         )
         embed.add_field(
-            name="📅 Kalendarz Ekonomiczny",
+            name="📅 Kalendarz Ekonomiczny 24h",
             value=ch_mention(channels.get("calendar")),
+            inline=False,
+        )
+        embed.add_field(
+            name="⚡ Flash News Ze Świata (Auto :25, :55)",
+            value=ch_mention(channels.get("news_global") or self.settings.discord_news_global_channel_id or 1544598484961722409),
             inline=False,
         )
         embed.add_field(
