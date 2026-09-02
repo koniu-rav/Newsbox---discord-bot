@@ -382,7 +382,10 @@ class GeminiService:
             "flash_news",
             default="Oceń wagę newsa (HIGH/MEDIUM/LOW) i zwróć JSON ze statusem, nagłówkiem oraz podsumowaniem:\n{headlines_str}"
         )
-        prompt = template.format(headlines_str=news_str)
+        try:
+            prompt = template.format(headlines_str=news_str)
+        except Exception:
+            prompt = template.replace("{headlines_str}", news_str)
 
         raw_response = await self._call_gemini(prompt, fallback_msg="")
         if not raw_response:

@@ -29,11 +29,11 @@ Evaluate the market importance of this news and generate a structured JSON respo
 
 ### OUTPUT FORMAT (Valid JSON only):
 ```json
-{
+{{
   "importance": "HIGH" | "MEDIUM" | "LOW",
   "header": "🚨 PILNE: ..." | null,
   "summary": "📰 ...\n🎯 ..." | null
-}
+}}
 ```
 
 CRITICAL RULES:
