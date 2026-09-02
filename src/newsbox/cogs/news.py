@@ -1,6 +1,7 @@
 """News Cog - handles regional news commands (PL, USA, EU, Crypto, Global) and 30-minute flash news streaming."""
 
 from datetime import datetime
+from typing import Optional, Dict, Any, List
 import discord
 from discord.ext import commands
 from newsbox.config import get_settings
