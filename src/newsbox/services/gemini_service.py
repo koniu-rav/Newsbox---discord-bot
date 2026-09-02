@@ -345,14 +345,32 @@ class GeminiService:
 
         return await self._call_gemini(prompt, fallback_msg="Podsumowanie newsów chwilowo niedostępne.")
 
-    async def generate_flash_news_summary(self, headlines: List[Dict[str, Any]]) -> str:
-        """Generate an ultra-concise 2-bullet flash bulletin (📰 event summary, 🎯 asset impact)."""
-        if not self._client:
-            first_title = headlines[0].get("title", "Wydarzenie rynkowe") if headlines else "Bieżące doniesienia ze świata"
-            return (
+    async def generate_flash_news_summary(self, headlines: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Generate an ultra-concise flash bulletin with importance evaluation (HIGH, MEDIUM, LOW).
+        Returns None if news is assessed as LOW importance (noise/irrelevant).
+        """
+        if not headlines:
+            return None
+
+        first_title = headlines[0].get("title", "Wydarzenie rynkowe")
+        urgent_keywords = [
+            "war", "strike", "attack", "missile", "crisis", "emergency",
+            "rate hike", "rate cut", "breaking", "crash", "fed", "ecb",
+            "iran", "israel", "ukraine", "russia", "wojna", "atak", "nalot"
+        ]
+        is_urgent = any(any(kw in h.get("title", "").lower() for kw in urgent_keywords) for h in headlines)
+
+        default_fallback = {
+            "importance": "HIGH" if is_urgent else "MEDIUM",
+            "header": "🚨 PILNE: Istotne doniesienie rynkowe" if is_urgent else None,
+            "summary": (
                 f"📰 {first_title}.\n"
                 f"🎯 Możliwa podwyższona zmienność na `DXY`, `EUR/USD`, `Złoto` oraz głównych indeksach giełdowych."
-            )
+            ),
+        }
+
+        if not self._client:
+            return default_fallback
 
         news_lines = [
             f"- {h.get('title', '')} (Źródło: {h.get('source', '')}, Region: {h.get('region', '')})"
@@ -362,14 +380,48 @@ class GeminiService:
 
         template = self.get_prompt_template(
             "flash_news",
-            default="Podsumuj to wydarzenie w 2 punktach (📰 najważniejszy fakt, 🎯 wpływ na walory):\n{headlines_str}"
+            default="Oceń wagę newsa (HIGH/MEDIUM/LOW) i zwróć JSON ze statusem, nagłówkiem oraz podsumowaniem:\n{headlines_str}"
         )
         prompt = template.format(headlines_str=news_str)
 
-        return await self._call_gemini(
-            prompt,
-            fallback_msg="📰 Podwyższona zmienność na rynkach po napływie najnowszych nagłówków.\n🎯 Zwiększona uwaga na parach walutowych i indeksach.",
-        )
+        raw_response = await self._call_gemini(prompt, fallback_msg="")
+        if not raw_response:
+            return default_fallback
+
+        try:
+            clean_json = raw_response
+            if "```json" in clean_json:
+                clean_json = clean_json.split("```json", 1)[1].split("```", 1)[0].strip()
+            elif "```" in clean_json:
+                clean_json = clean_json.split("```", 1)[1].split("```", 1)[0].strip()
+
+            parsed = json.loads(clean_json)
+            importance = str(parsed.get("importance", "MEDIUM")).upper().strip()
+            if importance == "LOW":
+                return None
+
+            header = parsed.get("header")
+            if header:
+                header = str(header).strip() or None
+
+            summary = parsed.get("summary")
+            if not summary:
+                summary = default_fallback["summary"]
+
+            return {
+                "importance": importance if importance in ["HIGH", "MEDIUM"] else "MEDIUM",
+                "header": header,
+                "summary": str(summary).strip(),
+            }
+        except Exception as e:
+            logger.warning("Failed to parse JSON from flash news Gemini response: %s. Using text analysis.", e)
+            if "📰" in raw_response and "🎯" in raw_response:
+                return {
+                    "importance": "HIGH" if ("🚨" in raw_response or "PILNE" in raw_response) else "MEDIUM",
+                    "header": "🚨 PILNE: Istotne doniesienie rynkowe" if ("🚨" in raw_response or "PILNE" in raw_response) else None,
+                    "summary": raw_response.strip(),
+                }
+            return default_fallback
 
     async def evaluate_session_performance(
         self,

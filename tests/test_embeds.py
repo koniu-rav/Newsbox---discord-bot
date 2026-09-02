@@ -106,6 +106,29 @@ def test_create_flash_news_embed():
     assert field_val.count("(Investing.com)") == 1
 
 
+def test_create_flash_news_embed_high_importance():
+    """Test generating high-importance flash news embed with alert header and red color."""
+    from newsbox.utils.embeds import create_flash_news_embed
+
+    headlines = [
+        {"title": "Fed announces emergency rate cut of 50bps", "url": "https://cnbc.com/news1", "source": "CNBC"},
+    ]
+    summary = "📰 Fed ogłosił nagłą obniżkę stóp o 50 pb.\n🎯 Gwałtowne osłabienie `DXY` i wzrosty na `Złoto` oraz `S&P 500`."
+    header = "🚨 PILNE: Niespodziewana obniżka stóp przez Fed"
+
+    embed = create_flash_news_embed(
+        flash_summary=summary,
+        headlines=headlines,
+        header=header,
+        importance="HIGH",
+    )
+
+    assert embed.title == "🚨 PILNE: Niespodziewana obniżka stóp przez Fed"
+    assert embed.color.value == 0xE74C3C  # Red alert
+    assert "50 pb" in embed.description
+    assert len(embed.fields) == 1
+
+
 def test_create_weekly_outlook_embed(sample_market_data):
     """Test generating Sunday Weekly Outlook embed."""
     from newsbox.utils.embeds import create_weekly_outlook_embed

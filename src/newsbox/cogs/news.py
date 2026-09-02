@@ -25,31 +25,53 @@ class NewsCog(commands.Cog, name="News Feed"):
         self.news_service = NewsService()
         self.gemini_service = GeminiService()
 
-    async def compile_and_send_flash_news(self, channel: discord.abc.Messageable) -> None:
-        """Fetch fresh breaking global headlines, generate 2-3 sentence AI flash update, and send to Discord."""
+    async def compile_and_send_flash_news(
+        self,
+        channel: discord.abc.Messageable,
+        is_manual: bool = False,
+    ) -> None:
+        """Fetch fresh breaking global headlines, evaluate importance, and send to Discord.
+        If news is assessed as LOW importance, publication is skipped automatically.
+        """
         try:
             # Check quiet window (market open: 08:50-09:15, 15:20-15:45)
-            if self.news_service.is_in_quiet_window():
-                logger.info("Skipping 30-minute flash news dispatch: Market Open quiet window active.")
+            if not is_manual and self.news_service.is_in_quiet_window():
+                logger.info("Skipping flash news dispatch: Market Open quiet window active.")
                 return
 
             headlines = await self.news_service.fetch_flash_breaking_news(limit=2)
             if not headlines:
-                logger.info("No fresh breaking news to dispatch for 30-min flash.")
+                logger.info("No fresh breaking news to dispatch for flash.")
+                if is_manual:
+                    await channel.send("ℹ️ Brak świeżych, nieopublikowanych doniesień rynkowych w tej chwili.")
                 return
 
-            time_str = datetime.now().strftime("%H:%M CET")
-            flash_summary = await self.gemini_service.generate_flash_news_summary(headlines)
+            flash_data = await self.gemini_service.generate_flash_news_summary(headlines)
+
+            # Skip publication if news is unimportant / noise
+            if not flash_data or flash_data.get("importance") == "LOW" or not flash_data.get("summary"):
+                logger.info("Flash news skipped: AI evaluated market importance as LOW / irrelevant.")
+                if is_manual:
+                    # For manual commands, send standard medium fallback
+                    first_title = headlines[0].get("title", "Wydarzenie rynkowe")
+                    embed = create_flash_news_embed(
+                        flash_summary=f"📰 {first_title}.\n🎯 Brak bezpośredniego, gwałtownego wpływu na rynki bazowe.",
+                        headlines=headlines,
+                        importance="MEDIUM",
+                    )
+                    await channel.send(embed=embed)
+                return
 
             embed = create_flash_news_embed(
-                flash_summary=flash_summary,
+                flash_summary=flash_data.get("summary", ""),
                 headlines=headlines,
-                time_str=time_str,
+                header=flash_data.get("header"),
+                importance=flash_data.get("importance", "MEDIUM"),
             )
             await channel.send(embed=embed)
-            logger.info("Successfully dispatched 30-minute flash news to channel %s", channel)
+            logger.info("Successfully dispatched flash news (importance=%s) to %s", flash_data.get("importance"), channel)
         except Exception as e:
-            logger.error("Failed to dispatch 30-minute flash news: %s", e, exc_info=True)
+            logger.error("Failed to dispatch flash news: %s", e, exc_info=True)
 
     @commands.command(name="news", aliases=["wiadomosci", "parkiet"])
     async def news_command(self, ctx: commands.Context, region: str = "ALL") -> None:
@@ -105,9 +127,9 @@ class NewsCog(commands.Cog, name="News Feed"):
 
     @commands.command(name="flash", aliases=["flashnews", "migawka"])
     async def flash_command(self, ctx: commands.Context) -> None:
-        """Ręcznie wygeneruj natychmiastową migawkę Flash News (2-3 zdania: co, kiedy, wpływ na walory)."""
+        """Ręcznie wygeneruj natychmiastową migawkę Flash News z oceną wagi rynkowej."""
         async with ctx.typing():
-            await self.compile_and_send_flash_news(ctx.channel)
+            await self.compile_and_send_flash_news(ctx.channel, is_manual=True)
 
     @commands.command(name="crypto", aliases=["krypto"])
     async def crypto_news_shortcut(self, ctx: commands.Context) -> None:

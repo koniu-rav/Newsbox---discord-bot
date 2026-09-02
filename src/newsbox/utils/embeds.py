@@ -355,12 +355,23 @@ def format_grouped_source_links(headlines: List[Dict[str, Any]]) -> str:
 def create_flash_news_embed(
     flash_summary: str,
     headlines: List[Dict[str, Any]],
+    header: Optional[str] = None,
+    importance: str = "MEDIUM",
     time_str: Optional[str] = None,
 ) -> discord.Embed:
-    """Build minimalist Global Flash News embed (no title, no footer, no timestamp, grouped sources)."""
+    """Build Global Flash News embed.
+    - If HIGH (or header provided): distinctive alert header with 🚨 and urgent red color (0xE74C3C).
+    - If MEDIUM: clean minimalist embed with no title and cyan color (0x00B4D8).
+    - No footer, no timestamp, grouped portal sources.
+    """
+    is_high = importance.upper() == "HIGH" or bool(header)
+    title = header if (is_high and header) else ("🚨 PILNE • BREAKING NEWS" if is_high else None)
+    color = 0xE74C3C if is_high else 0x00B4D8
+
     embed = discord.Embed(
+        title=title,
         description=truncate(flash_summary, MAX_DESCRIPTION_LENGTH),
-        color=0x00B4D8,  # Vibrant Cyan / Blue
+        color=color,
     )
 
     if headlines:
