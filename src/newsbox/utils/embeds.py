@@ -23,9 +23,9 @@ def create_trader_advisory_embed(
     market_data: Dict[str, Any],
     advisory_text: str,
 ) -> discord.Embed:
-    """Build the primary 8:00 AM Trader Advisory embed (FX Majors, DXY, DAX)."""
+    """Build the primary 8:00 AM Trader Advisory embed (London, New York, Asia sessions)."""
     embed = discord.Embed(
-        title=f"🌅 Raport Makro & FX/DAX Advisory — {date_str}",
+        title=f"🌅 Briefing Makro (Londyn • Nowy Jork • Azja) — {date_str}",
         description=truncate(advisory_text, MAX_DESCRIPTION_LENGTH),
         color=0x1F8B4C,  # Emerald Green
         timestamp=datetime.utcnow(),
@@ -173,30 +173,30 @@ def create_calendar_embed(
     calendar_events: List[Dict[str, Any]],
     calendar_advice: Optional[str] = None,
 ) -> discord.Embed:
-    """Build the Economic Calendar & Risk Assessment embed."""
+    """Build the Economic Calendar & Risk Assessment embed (24h window: 07:00 today to 07:00 tomorrow)."""
     embed = discord.Embed(
-        title=f"📅 Kalendarz Ekonomiczny & Ryzyka Sesji — {date_str}",
+        title=f"📅 24-godzinny Kalendarz Makro (07:00 ➡️ 07:00) — {date_str}",
         color=0xE67E22,  # Orange
         timestamp=datetime.utcnow(),
     )
 
     event_lines = []
-    for event in calendar_events[:8]:
+    for event in calendar_events[:12]:
         time = event.get("time", "")
         currency = event.get("currency", "")
-        title = truncate(event.get("title", ""), 80)
+        title = truncate(event.get("title", ""), 85)
         impact = event.get("impact", "🟡")
         event_lines.append(f"{impact} `{time}` **[{currency}]** {title}")
 
     embed.add_field(
-        name="⏰ Zaplanowane Publikacje Dnia",
-        value=truncate("\n".join(event_lines), MAX_FIELD_LENGTH) if event_lines else "Brak kluczowych wydarzeń.",
+        name="⏰ Publikacje Dnia & Nocy (07:00 Dzisiaj ➡️ 07:00 Jutro)",
+        value=truncate("\n".join(event_lines), MAX_FIELD_LENGTH) if event_lines else "Brak istotnych publikacji w tym oknie czasowym.",
         inline=False,
     )
 
     if calendar_advice:
         embed.add_field(
-            name="💡 Zalecenia AI dla Tradera",
+            name="💡 Zalecenia AI dla Tradera (Londyn • Nowy Jork • Azja)",
             value=truncate(calendar_advice, MAX_FIELD_LENGTH),
             inline=False,
         )

@@ -19,7 +19,7 @@ def test_create_trader_advisory_embed(sample_market_data):
         advisory_text="🧭 **MARKET REGIME**: Risk-on.\n🟢 **CO HANDLOWAĆ**: DAX Long.\n⛔ **CZEGO UNIKAĆ**: EUR/USD.",
     )
 
-    assert "Raport Makro & FX/DAX Advisory" in embed.title
+    assert "Briefing Makro (Londyn • Nowy Jork • Azja)" in embed.title
     assert "Wtorek, 01.09.2026" in embed.title
     assert "Risk-on" in embed.description
     assert len(embed.fields) >= 1

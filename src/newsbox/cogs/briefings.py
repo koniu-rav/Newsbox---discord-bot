@@ -49,7 +49,7 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             logger.info("Generating morning macro briefing (is_scheduled=%s) for %s...", is_scheduled, date_str)
 
             market_data = await self.market_service.fetch_market_snapshot()
-            calendar_events = await self.calendar_service.fetch_todays_events()
+            calendar_events = await self.calendar_service.fetch_todays_events(start_hour=8)
             news_headlines = await self.news_service.fetch_regional_news("ALL", limit=8)
 
             advisory_text = await self.gemini_service.generate_trader_advisory(
@@ -179,7 +179,7 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
         """Fetch economic calendar, generate AI risk assessment, and send Discord Embed."""
         try:
             date_str = datetime.utcnow().strftime("%A, %d.%m.%Y")
-            calendar_events = await self.calendar_service.fetch_todays_events()
+            calendar_events = await self.calendar_service.fetch_todays_events(start_hour=7)
             calendar_advice = await self.gemini_service.generate_calendar_advisory(calendar_events)
 
             embed = create_calendar_embed(
