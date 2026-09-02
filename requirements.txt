@@ -7,3 +7,4 @@ python-dotenv>=1.0.1
 feedparser>=6.0.11
 beautifulsoup4>=4.12.3
 yfinance>=0.2.38
+
