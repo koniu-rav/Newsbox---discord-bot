@@ -1,6 +1,7 @@
 """Discord Embed message builders with strict character limits and we.trade community branding."""
 
 from datetime import datetime
+import re
 from typing import Any, Dict, List, Optional
 import discord
 
@@ -514,12 +515,32 @@ def create_accuracy_embed(
     return embed
 
 
-def quote_text(text: str) -> str:
-    """Prefix non-empty lines with '> ' for full-width Discord blockquote styling."""
+def clean_markdown_text(text: str) -> str:
+    """Clean up markdown text: completely strip blockquote markers ('>'), horizontal rules ('---', '***'), and lone '>'."""
     if not text:
         return ""
-    lines = text.strip().split("\n")
-    return "\n".join(f"> {line}" if line.strip() else ">" for line in lines)
+    lines = []
+    for line in text.split("\n"):
+        stripped = line.strip()
+        # Filter out horizontal divider lines
+        if stripped in ["---", "***", "___", ">---", "> ---", ">***", "> ***", "- - -"]:
+            continue
+        # Remove leading blockquote markers
+        if stripped.startswith("> "):
+            line = stripped[2:].strip()
+        elif stripped == ">":
+            continue
+        lines.append(line)
+
+    cleaned = "\n".join(lines)
+    # Collapse multiple consecutive blank lines into at most 2
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def quote_text(text: str) -> str:
+    """Clean markdown text without any '>' blockquotes or '---' dividers."""
+    return clean_markdown_text(text)
 
 
 async def send_full_message(
@@ -572,7 +593,7 @@ def format_flash_news_message(
     importance: str = "MEDIUM",
     time_str: Optional[str] = None,
 ) -> str:
-    """Format Global Flash News as a full-width Discord markdown message."""
+    """Format Global Flash News as a clean full-width Discord markdown message."""
     is_high = importance.upper() == "HIGH" or bool(header)
     parts = []
 
@@ -583,7 +604,7 @@ def format_flash_news_message(
         parts.append(h_text)
 
     if flash_summary:
-        parts.append(quote_text(flash_summary))
+        parts.append(clean_markdown_text(flash_summary))
 
     if headlines:
         sources_text = format_grouped_source_links(headlines[:4])
@@ -598,11 +619,11 @@ def format_weekly_outlook_message(
     market_data: Dict[str, Any],
     outlook_text: str,
 ) -> str:
-    """Format Sunday Strategic Weekly Outlook as a full-width Discord markdown message."""
+    """Format Sunday Strategic Weekly Outlook as a clean full-width Discord markdown message."""
     parts = [f"## 🗓️ Strategiczny Plan & Horyzont Tygodniowy — {date_str}"]
 
     if outlook_text:
-        parts.append(quote_text(outlook_text))
+        parts.append(clean_markdown_text(outlook_text))
 
     market_lines = []
     for symbol, info in market_data.items():
@@ -627,7 +648,7 @@ def format_session_advisory_message(
     market_data: Dict[str, Any],
     advisory_text: str,
 ) -> str:
-    """Format Session Advisory (London, New York, Asia) as a full-width Discord markdown message."""
+    """Format Session Advisory (London, New York, Asia) as a clean full-width Discord markdown message."""
     s_clean = session_key.lower().strip()
     session_config = {
         "london": {
@@ -648,7 +669,7 @@ def format_session_advisory_message(
     parts = [cfg["title"]]
 
     if advisory_text:
-        parts.append(quote_text(advisory_text))
+        parts.append(clean_markdown_text(advisory_text))
 
     market_lines = []
     for symbol, info in market_data.items():
@@ -669,7 +690,7 @@ def format_single_asset_message(
     asset_data: Dict[str, Any],
     advisory_text: str,
 ) -> str:
-    """Format Single Asset advisory as a full-width Discord markdown message."""
+    """Format Single Asset advisory as a clean full-width Discord markdown message."""
     price = asset_data.get("price", "N/A")
     change = asset_data.get("change_pct", "0.00%")
     direction = asset_data.get("direction", "⚪")
@@ -682,7 +703,7 @@ def format_single_asset_message(
     ]
 
     if advisory_text:
-        parts.append(quote_text(advisory_text))
+        parts.append(clean_markdown_text(advisory_text))
 
     parts.append(f"-# {BRAND_FOOTER}")
     return "\n\n".join(parts)
@@ -693,7 +714,7 @@ def format_calendar_message(
     calendar_events: List[Dict[str, Any]],
     calendar_advice: Optional[str] = None,
 ) -> str:
-    """Format 24-hour Economic Calendar as a full-width Discord markdown message."""
+    """Format 24-hour Economic Calendar as a clean full-width Discord markdown message."""
     parts = [f"## 📅 24-godzinny Kalendarz Makro (07:00 ➡️ 07:00) — {date_str}"]
 
     event_lines = []
@@ -710,7 +731,7 @@ def format_calendar_message(
         parts.append("### ⏰ Publikacje Dnia & Nocy\n*Brak istotnych publikacji w tym oknie czasowym.*")
 
     if calendar_advice:
-        parts.append(f"### 💡 Zalecenia AI dla Tradera (Londyn • Nowy Jork • Azja)\n{quote_text(calendar_advice)}")
+        parts.append(f"### 💡 Zalecenia AI dla Tradera (Londyn • Nowy Jork • Azja)\n{clean_markdown_text(calendar_advice)}")
 
     parts.append(f"-# {BRAND_FOOTER}")
     return "\n\n".join(parts)
@@ -721,7 +742,7 @@ def format_regional_news_message(
     headlines: List[Dict[str, Any]],
     summary_text: Optional[str] = None,
 ) -> str:
-    """Format Regional News Digest as a full-width Discord markdown message."""
+    """Format Regional News Digest as a clean full-width Discord markdown message."""
     flags = {
         "PL": "🇵🇱 Polska / GPW & Biznes",
         "USA": "🇺🇸 Rynki USA & Gospodarka",
@@ -734,7 +755,7 @@ def format_regional_news_message(
     parts = [f"## {title}"]
 
     if summary_text:
-        parts.append(quote_text(summary_text))
+        parts.append(clean_markdown_text(summary_text))
 
     items_text = []
     for h in headlines[:6]:
@@ -759,7 +780,7 @@ def format_crypto_news_message(
     headlines: List[Dict[str, Any]],
     summary_text: Optional[str] = None,
 ) -> str:
-    """Format Crypto & Blockchain Pulse as a full-width Discord markdown message."""
+    """Format Crypto & Blockchain Pulse as a clean full-width Discord markdown message."""
     return format_regional_news_message("CRYPTO", headlines, summary_text)
 
 
@@ -768,7 +789,7 @@ def format_portfolio_message(
     advisory_text: str,
     portfolio_news: List[Dict[str, Any]],
 ) -> str:
-    """Format User Portfolio Overview as a full-width Discord markdown message."""
+    """Format User Portfolio Overview as a clean full-width Discord markdown message."""
     parts = ["## 💼 Twój Portfel Inwestycyjny & Wiadomości Spółek"]
 
     quote_lines = []
@@ -782,7 +803,7 @@ def format_portfolio_message(
         parts.append("### 📊 Notowania Twoich Spółek\n" + "\n".join(quote_lines))
 
     if advisory_text:
-        parts.append(f"### 💡 Podsumowanie & Komentarz Portfelowy\n{quote_text(advisory_text)}")
+        parts.append(f"### 💡 Podsumowanie & Komentarz Portfelowy\n{clean_markdown_text(advisory_text)}")
 
     news_lines = []
     for h in portfolio_news[:6]:
@@ -807,12 +828,12 @@ def format_accuracy_message(
     evaluation_result: Dict[str, Any],
     stats: Dict[str, Any],
 ) -> str:
-    """Format Multi-Tier Accuracy & Performance Tracker as a full-width Discord markdown message."""
+    """Format Multi-Tier Accuracy & Performance Tracker as a clean full-width Discord markdown message."""
     score = evaluation_result.get("score", 0)
     eval_date = evaluation_result.get("date", "Wczoraj")
     session_key = evaluation_result.get("session", "london")
-    breakdown = evaluation_result.get("breakdown", "")
-    conclusions = evaluation_result.get("conclusions", "")
+    breakdown = clean_markdown_text(evaluation_result.get("breakdown", ""))
+    conclusions = clean_markdown_text(evaluation_result.get("conclusions", ""))
 
     session_name = {
         "london": "🇬🇧 Londyn (Europa)",
@@ -856,12 +877,12 @@ def format_accuracy_message(
     ]
 
     if conclusions:
-        parts.append(f"### 💡 Wnioski i Lekcje Rynkowe\n{quote_text(conclusions)}")
+        parts.append(f"### 💡 Wnioski i Lekcje Rynkowe\n{conclusions}")
 
     parts.append(f"-# {BRAND_FOOTER}")
     return "\n\n".join(parts)
 
 
 def format_error_message(title: str, description: str) -> str:
-    """Format error notification as a full-width Discord markdown message."""
-    return f"### ⚠️ {title}\n> {description}"
+    """Format error notification as a clean full-width Discord markdown message."""
+    return f"### ⚠️ {title}\n{clean_markdown_text(description)}"

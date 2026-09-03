@@ -29,8 +29,8 @@ class AdminCog(commands.Cog, name="Admin"):
         from newsbox.utils.embeds import send_full_message
         msg = (
             "## 🌐 Społeczność we.trade & Newsbox Bot\n"
-            "> **Newsbox** to zaawansowany asystent rynkowy AI stworzony dla członków społeczności **we.trade**.\n"
-            "> Dostarcza traderom przewagę rynkową dzięki zautomatyzowanym raportom makro, analizom sentymentu AI oraz trackingowi skuteczności.\n\n"
+            "**Newsbox** to zaawansowany asystent rynkowy AI stworzony dla członków społeczności **we.trade**.\n"
+            "Dostarcza traderom przewagę rynkową dzięki zautomatyzowanym raportom makro, analizom sentymentu AI oraz trackingowi skuteczności.\n\n"
             "### 💎 Główne Moduły i Komendy\n"
             "• `!briefing` — Raport makro dla nadchodzącej sesji (`!london`, `!ny`, `!asia`)\n"
             "• `!weekly` — Niedzielny horyzont strategiczny na cały tydzień (10:00)\n"
@@ -58,7 +58,7 @@ class AdminCog(commands.Cog, name="Admin"):
 
         msg = (
             "## 🤖 Newsbox Bot Status • we.trade\n"
-            "> Inteligentny bot analityczny dla społeczności inwestorów i traderów **we.trade**.\n\n"
+            "Inteligentny bot analityczny dla społeczności inwestorów i traderów **we.trade**.\n\n"
             "### ⚙️ Konfiguracja Systemowa\n"
             f"• **Środowisko:** `{self.settings.environment}`\n"
             f"• **Model AI:** `{self.settings.gemini_model}`\n"

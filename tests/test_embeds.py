@@ -173,8 +173,9 @@ def test_format_flash_news_message_medium():
     msg = format_flash_news_message(flash_summary=summary, headlines=headlines, importance="MEDIUM")
 
     assert "### 🚨 PILNE" not in msg
-    assert "> 📰 Fakt rynkowy." in msg
-    assert "> 🎯 Wpływ na walory." in msg
+    assert "📰 Fakt rynkowy." in msg
+    assert "🎯 Wpływ na walory." in msg
+    assert ">" not in msg
     assert "🌐 Źródła & Doniesienia:" in msg
     assert "[Headline 1](https://example.com/1)" in msg
 
@@ -191,7 +192,8 @@ def test_format_flash_news_message_high():
     msg = format_flash_news_message(flash_summary=summary, headlines=headlines, header=header, importance="HIGH")
 
     assert "### 🚨 PILNE: Nagła eskalacja" in msg
-    assert "> 📰 Ważny komunikat." in msg
+    assert "📰 Ważny komunikat." in msg
+    assert ">" not in msg
     assert "[Breaking Headline](https://example.com/2)" in msg
 
 
@@ -207,7 +209,7 @@ def test_format_session_advisory_message(sample_market_data):
     )
 
     assert "## 🇬🇧 Briefing Sesji Londyńskiej" in msg
-    assert "> 🧭 **REŻIM**: Risk-on." in msg
+    assert "🧭 **REŻIM**: Risk-on." in msg
     assert "### 📊 Notowania Przed Otwarciem Europy" in msg
     assert "DAX" in msg
     assert "EUR/USD" in msg
@@ -226,7 +228,7 @@ def test_format_calendar_message():
     assert "## 📅 24-godzinny Kalendarz Makro" in msg
     assert "🔴 `08:00` **[GBP]** PKB Wielkiej Brytanii" in msg
     assert "### 💡 Zalecenia AI dla Tradera" in msg
-    assert "> Uwaga na podwyższoną zmienność" in msg
+    assert "Uwaga na podwyższoną zmienność" in msg
 
 
 def test_format_portfolio_message():
@@ -239,7 +241,7 @@ def test_format_portfolio_message():
 
     assert "## 💼 Twój Portfel Inwestycyjny" in msg
     assert "• **NVDA**: `128.50` (🟢 +2.40%)" in msg
-    assert "> Portfel w dobrej kondycji." in msg
+    assert "Portfel w dobrej kondycji." in msg
     assert "`[NVDA]` [Nowe chipy AI](https://example.com/chip)" in msg
 
 
@@ -259,4 +261,26 @@ def test_format_accuracy_message():
     assert "Globalny Win-Rate" in msg
     assert "80.0%" in msg
     assert "Trafny kierunek na DAX" in msg
+
+
+def test_clean_markdown_text():
+    """Verify that clean_markdown_text completely strips >, ---, and empty quote lines."""
+    from newsbox.utils.embeds import clean_markdown_text
+
+    ugly_input = (
+        "> 🧭 **SENTYMENT**\n"
+        ">\n"
+        "---\n"
+        ">\n"
+        "> 🎯 **ZALECENIE**: DAX Long\n"
+        "***\n"
+        "> Finansowy komentarz."
+    )
+    cleaned = clean_markdown_text(ugly_input)
+    assert ">" not in cleaned
+    assert "---" not in cleaned
+    assert "***" not in cleaned
+    assert "🧭 **SENTYMENT**" in cleaned
+    assert "🎯 **ZALECENIE**: DAX Long" in cleaned
+    assert "Finansowy komentarz." in cleaned
 
