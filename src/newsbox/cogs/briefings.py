@@ -19,6 +19,13 @@ from newsbox.utils.embeds import (
     create_session_advisory_embed,
     create_single_asset_embed,
     create_weekly_outlook_embed,
+    format_accuracy_message,
+    format_calendar_message,
+    format_error_message,
+    format_session_advisory_message,
+    format_single_asset_message,
+    format_weekly_outlook_message,
+    send_full_message,
 )
 from newsbox.utils.logger import setup_logger
 
@@ -64,20 +71,21 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 news_headlines=news_headlines,
             )
 
-            embed = create_weekly_outlook_embed(
+            msg_text = format_weekly_outlook_message(
                 date_str=date_str,
                 market_data=market_data,
                 outlook_text=outlook_text,
             )
-            await channel.send(embed=embed)
+            await send_full_message(channel, msg_text)
             logger.info("Successfully sent Weekly Strategic Outlook to %s", channel)
         except Exception as e:
             logger.error("Failed to generate weekly outlook: %s", e, exc_info=True)
-            await channel.send(
-                embed=create_error_embed(
+            await send_full_message(
+                channel,
+                format_error_message(
                     "Błąd Planu Tygodniowego",
                     f"Nie udało się wygenerować planu tygodniowego: {e}",
-                )
+                ),
             )
 
     async def compile_and_send_session_briefing(
@@ -86,7 +94,7 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
         session_key: str = "london",
         is_scheduled: bool = False,
     ) -> None:
-        """Fetch market data, calendar, news for a specific session (london, newyork, asia) and send Discord Embed.
+        """Fetch market data, calendar, news for a specific session (london, newyork, asia) and send full-width Discord message.
         Scheduled dispatches (1h before pre-market) save baseline prices for accuracy tracking.
         """
         try:
@@ -124,21 +132,22 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                     briefing_date=iso_date,
                 )
 
-            embed = create_session_advisory_embed(
+            msg_text = format_session_advisory_message(
                 session_key=s_clean,
                 date_str=date_str,
                 market_data=market_data,
                 advisory_text=advisory_text,
             )
-            await channel.send(embed=embed)
+            await send_full_message(channel, msg_text)
             logger.info("Successfully sent %s session briefing to %s", s_clean, channel)
         except Exception as e:
             logger.error("Failed to generate %s session briefing: %s", session_key, e, exc_info=True)
-            await channel.send(
-                embed=create_error_embed(
+            await send_full_message(
+                channel,
+                format_error_message(
                     f"Błąd Briefingu Sesji ({session_key.upper()})",
                     f"Wystąpił błąd podczas generowania analizy sesyjnej: {e}",
-                )
+                ),
             )
 
     # Legacy helper aliased to London session
@@ -184,8 +193,8 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 )
 
                 multi_tier_stats = self.accuracy_service.get_multi_tier_stats()
-                embed = create_accuracy_embed(record, multi_tier_stats)
-                await channel.send(embed=embed)
+                msg_text = format_accuracy_message(record, multi_tier_stats)
+                await send_full_message(channel, msg_text)
                 logger.info("Evaluated and sent new accuracy report for %s (%s)", eval_date, s_clean)
                 return
 
@@ -193,8 +202,8 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             last_eval = self.accuracy_service.get_last_evaluation(session=s_clean) or self.accuracy_service.get_last_evaluation()
             if last_eval:
                 multi_tier_stats = self.accuracy_service.get_multi_tier_stats()
-                embed = create_accuracy_embed(last_eval, multi_tier_stats)
-                await channel.send(embed=embed)
+                msg_text = format_accuracy_message(last_eval, multi_tier_stats)
+                await send_full_message(channel, msg_text)
             else:
                 empty_record = {
                     "score": 0,
@@ -204,8 +213,8 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                     "breakdown": "Brak zarejestrowanych wcześniejszych sesji do ewaluacji.",
                     "conclusions": "Statystyki zostaną zaktualizowane po zakończeniu najbliższej sesji.",
                 }
-                embed = create_accuracy_embed(empty_record, self.accuracy_service.get_multi_tier_stats())
-                await channel.send(embed=embed)
+                msg_text = format_accuracy_message(empty_record, self.accuracy_service.get_multi_tier_stats())
+                await send_full_message(channel, msg_text)
         except Exception as e:
             logger.error("Failed to compile session accuracy report: %s", e, exc_info=True)
 
@@ -220,8 +229,8 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 last_eval = self.accuracy_service.get_last_evaluation()
                 if last_eval:
                     multi_tier_stats = self.accuracy_service.get_multi_tier_stats()
-                    embed = create_accuracy_embed(last_eval, multi_tier_stats)
-                    await channel.send(embed=embed)
+                    msg_text = format_accuracy_message(last_eval, multi_tier_stats)
+                    await send_full_message(channel, msg_text)
                 else:
                     await self.compile_and_send_session_accuracy(channel, session_key="london")
         except Exception as e:
@@ -244,31 +253,34 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 news_headlines=matching_news,
             )
 
-            embed = create_single_asset_embed(
+            msg_text = format_single_asset_message(
                 symbol=symbol,
                 asset_data=asset_data,
                 advisory_text=advisory_text,
             )
-            await channel.send(embed=embed)
+            await send_full_message(channel, msg_text)
         except Exception as e:
             logger.error("Failed to generate single asset brief for %s: %s", symbol, e)
-            await channel.send(
-                embed=create_error_embed("Błąd Analizy Waloru", f"Nie udało się pobrać danych dla {symbol}: {e}")
+            await send_full_message(
+                channel,
+                format_error_message("Błąd Analizy Waloru", f"Nie udało się pobrać danych dla {symbol}: {e}"),
             )
 
     async def compile_and_send_calendar_briefing(self, channel: discord.abc.Messageable) -> None:
-        """Fetch economic calendar, generate AI risk assessment, and send Discord Embed."""
+        """Fetch economic calendar, generate AI risk assessment, and send full-width Discord message."""
         try:
             date_str = datetime.now(WARSAW_TZ).strftime("%A, %d.%m.%Y")
             calendar_events = await self.calendar_service.fetch_todays_events(start_hour=7)
             calendar_advice = await self.gemini_service.generate_calendar_advisory(calendar_events)
 
-            embed = create_calendar_embed(
+            msg_text = format_calendar_message(
                 date_str=date_str,
                 calendar_events=calendar_events,
                 calendar_advice=calendar_advice,
             )
-            await channel.send(embed=embed)
+            await send_full_message(channel, msg_text)
+        except Exception as e:
+            logger.error("Failed to send calendar briefing: %s", e, exc_info=True)
         except Exception as e:
             logger.error("Failed to send calendar briefing: %s", e, exc_info=True)
 

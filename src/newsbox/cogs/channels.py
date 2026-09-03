@@ -105,59 +105,25 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
     @commands.command(name="channels", aliases=["kanaly"])
     async def list_channels(self, ctx: commands.Context) -> None:
         """Pokaż aktualne przypisanie kanałów Discord."""
-        embed = discord.Embed(
-            title="📡 Konfiguracja Kanałów Powiadomień (Trwały Zapis)",
-            color=0x3498DB,
-        )
-
         channels = self.state_manager.get_all_channels()
 
         def ch_mention(ch_id: Optional[int]) -> str:
             return f"<#{ch_id}>" if ch_id else "*Brak (nieustawiony)*"
 
-        embed.add_field(
-            name="🌅 Raporty Makro & Sesyjne (Londyn, NY, Azja)",
-            value=ch_mention(channels.get("macro") or self.settings.macro_channel_id),
-            inline=False,
-        )
-        embed.add_field(
-            name="📅 Kalendarz Ekonomiczny 24h",
-            value=ch_mention(channels.get("calendar")),
-            inline=False,
-        )
-        embed.add_field(
-            name="⚡ Flash News Ze Świata (Auto :25, :55)",
-            value=ch_mention(channels.get("news_global") or self.settings.discord_news_global_channel_id or 1544598484961722409),
-            inline=False,
-        )
-        embed.add_field(
-            name="🇵🇱 Newsy Polska / GPW",
-            value=ch_mention(channels.get("news_pl")),
-            inline=False,
-        )
-        embed.add_field(
-            name="🌐 Newsy Globalne & USA",
-            value=ch_mention(channels.get("news_global")),
-            inline=False,
-        )
-        embed.add_field(
-            name="🪙 Krypto (#crypto-chat)",
-            value=ch_mention(channels.get("crypto")),
-            inline=False,
-        )
-        embed.add_field(
-            name="💼 Podgląd Portfela",
-            value=ch_mention(channels.get("portfolio")),
-            inline=False,
-        )
-        embed.add_field(
-            name="📰 Newsy dla Spółek Portfela",
-            value=ch_mention(channels.get("portfolio_news")),
-            inline=False,
-        )
-
-        embed.set_footer(text="Użyj !set_channel <typ> #kanal aby zmienić przypisanie (zapis do data/state.json).")
-        await ctx.send(embed=embed)
+        lines = [
+            "## 📡 Konfiguracja Kanałów Powiadomień (Trwały Zapis)",
+            f"• **🌅 Raporty Makro & Sesyjne:** {ch_mention(channels.get('macro') or self.settings.macro_channel_id)}",
+            f"• **📅 Kalendarz Ekonomiczny 24h:** {ch_mention(channels.get('calendar'))}",
+            f"• **⚡ Flash News Ze Świata (Auto :25, :55):** {ch_mention(channels.get('news_global') or self.settings.discord_news_global_channel_id or 1544598484961722409)}",
+            f"• **🇵🇱 Newsy Polska / GPW:** {ch_mention(channels.get('news_pl'))}",
+            f"• **🌐 Newsy Globalne & USA:** {ch_mention(channels.get('news_global'))}",
+            f"• **🪙 Krypto (#crypto-chat):** {ch_mention(channels.get('crypto'))}",
+            f"• **💼 Podgląd Portfela:** {ch_mention(channels.get('portfolio'))}",
+            f"• **📰 Newsy dla Spółek Portfela:** {ch_mention(channels.get('portfolio_news'))}",
+            "-# Użyj !set_channel <typ> #kanal aby zmienić przypisanie (zapis do data/state.json).",
+        ]
+        from newsbox.utils.embeds import send_full_message
+        await send_full_message(ctx.channel, "\n".join(lines))
 
 
 async def setup(bot: commands.Bot) -> None:

@@ -11,6 +11,10 @@ from newsbox.utils.embeds import (
     create_crypto_news_embed,
     create_flash_news_embed,
     create_regional_news_embed,
+    format_crypto_news_message,
+    format_flash_news_message,
+    format_regional_news_message,
+    send_full_message,
 )
 from newsbox.utils.logger import setup_logger
 
@@ -32,7 +36,7 @@ class NewsCog(commands.Cog, name="News Feed"):
         channel: discord.abc.Messageable,
         is_manual: bool = False,
     ) -> None:
-        """Fetch fresh breaking global headlines, evaluate importance, and send to Discord.
+        """Fetch fresh breaking global headlines, evaluate importance, and send full-width Discord message.
         If news is assessed as LOW importance, publication is skipped automatically.
         """
         try:
@@ -60,7 +64,7 @@ class NewsCog(commands.Cog, name="News Feed"):
                     "action": "ℹ️ Pominięto: Brak świeżych, nieopublikowanych doniesień w tej chwili.",
                 }
                 if is_manual:
-                    await channel.send("ℹ️ Brak świeżych, nieopublikowanych doniesień rynkowych w tej chwili.")
+                    await send_full_message(channel, "ℹ️ Brak świeżych, nieopublikowanych doniesień rynkowych w tej chwili.")
                 return
 
             main_headline = headlines[0].get("title", "")
@@ -80,12 +84,12 @@ class NewsCog(commands.Cog, name="News Feed"):
                 }
                 if is_manual:
                     # For manual commands, send standard medium fallback
-                    embed = create_flash_news_embed(
+                    msg_text = format_flash_news_message(
                         flash_summary=f"📰 {main_headline}.\n🎯 Brak bezpośredniego, gwałtownego wpływu na rynki bazowe.",
                         headlines=headlines,
                         importance="MEDIUM",
                     )
-                    await channel.send(embed=embed)
+                    await send_full_message(channel, msg_text)
                 return
 
             importance = flash_data.get("importance", "MEDIUM")
@@ -100,13 +104,13 @@ class NewsCog(commands.Cog, name="News Feed"):
                 "action": f"{'🔴 Opublikowano (Alert PILNE)' if importance == 'HIGH' else '🔵 Opublikowano (Standardowy)'}",
             }
 
-            embed = create_flash_news_embed(
+            msg_text = format_flash_news_message(
                 flash_summary=flash_data.get("summary", ""),
                 headlines=headlines,
                 header=header,
                 importance=importance,
             )
-            await channel.send(embed=embed)
+            await send_full_message(channel, msg_text)
             logger.info("Successfully dispatched flash news (importance=%s) to %s: %s", importance, channel, main_headline)
         except Exception as e:
             logger.error("Failed to dispatch flash news: %s", e, exc_info=True)
@@ -135,11 +139,11 @@ class NewsCog(commands.Cog, name="News Feed"):
             if reg_normalized in ["CRYPTO", "KRYPTO", "BTC"]:
                 headlines = await self.news_service.fetch_crypto_news(limit=6)
                 summary = await self.gemini_service.generate_crypto_summary(headlines)
-                embed = create_crypto_news_embed(
+                msg_text = format_crypto_news_message(
                     headlines=headlines,
                     summary_text=summary + quiet_notice if summary else quiet_notice,
                 )
-                await ctx.send(embed=embed)
+                await send_full_message(ctx.channel, msg_text)
                 return
 
             if reg_normalized in ["US", "USA"]:
@@ -156,30 +160,29 @@ class NewsCog(commands.Cog, name="News Feed"):
             headlines = await self.news_service.fetch_regional_news(reg_key, limit=6)
             summary = await self.gemini_service.generate_news_summary(headlines)
 
-            embed = create_regional_news_embed(
+            msg_text = format_regional_news_message(
                 region=reg_key,
                 headlines=headlines,
                 summary_text=summary + quiet_notice if summary else quiet_notice,
             )
-            await ctx.send(embed=embed)
+            await send_full_message(ctx.channel, msg_text)
 
     @commands.command(name="flash", aliases=["flashnews", "migawka"])
     async def flash_command(self, ctx: commands.Context, sub_arg: Optional[str] = None) -> None:
         """Ręcznie wygeneruj natychmiastową migawkę Flash News lub sprawdź status ostatniej oceny AI (`!flash status`)."""
         if sub_arg and sub_arg.lower().strip() in ["status", "log", "debug", "check"]:
             if not self.last_flash_audit:
-                await ctx.send("ℹ️ Bot nie przeprowadził jeszcze żadnej automatycznej oceny Flash News od ostatniego restartu.")
+                await send_full_message(ctx.channel, "ℹ️ Bot nie przeprowadził jeszcze żadnej automatycznej oceny Flash News od ostatniego restartu.")
                 return
 
-            embed = discord.Embed(
-                title="🔍 Status Ostatniej Oceny Flash News • AI Audit",
-                color=0x3498DB,
+            status_msg = (
+                "## 🔍 Status Ostatniej Oceny Flash News • AI Audit\n"
+                f"• **Czas sprawdzenia:** `{self.last_flash_audit.get('time', 'N/A')}`\n"
+                f"• **Ocena Wagi AI:** `{self.last_flash_audit.get('importance', 'N/A')}`\n"
+                f"• **Sprawdzony Nagłówek:** {self.last_flash_audit.get('headline', 'Brak')} *({self.last_flash_audit.get('source', '')})*\n"
+                f"• **Podjęta Akcja:** {self.last_flash_audit.get('action', 'Brak')}"
             )
-            embed.add_field(name="⏰ Czas sprawdzenia", value=f"`{self.last_flash_audit.get('time', 'N/A')}`", inline=True)
-            embed.add_field(name="🏷️ Ocena Wagi AI", value=f"`{self.last_flash_audit.get('importance', 'N/A')}`", inline=True)
-            embed.add_field(name="📰 Sprawdzony Nagłówek", value=f"• {self.last_flash_audit.get('headline', 'Brak')} *({self.last_flash_audit.get('source', '')})*", inline=False)
-            embed.add_field(name="⚡ Podjęta Akcja", value=self.last_flash_audit.get("action", "Brak"), inline=False)
-            await ctx.send(embed=embed)
+            await send_full_message(ctx.channel, status_msg)
             return
 
         async with ctx.typing():

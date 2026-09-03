@@ -512,3 +512,356 @@ def create_accuracy_embed(
 
     embed.set_footer(text=BRAND_FOOTER)
     return embed
+
+
+def quote_text(text: str) -> str:
+    """Prefix non-empty lines with '> ' for full-width Discord blockquote styling."""
+    if not text:
+        return ""
+    lines = text.strip().split("\n")
+    return "\n".join(f"> {line}" if line.strip() else ">" for line in lines)
+
+
+async def send_full_message(
+    target: discord.abc.Messageable,
+    content: str,
+) -> List[discord.Message]:
+    """Send a full-width text message to Discord, chunking safely if content exceeds 2000 chars."""
+    clean_content = content.strip()
+    if not clean_content:
+        return []
+
+    if len(clean_content) <= 2000:
+        msg = await target.send(clean_content)
+        return [msg]
+
+    chunks: List[str] = []
+    current_chunk = ""
+    lines = clean_content.split("\n")
+
+    for line in lines:
+        if len(current_chunk) + len(line) + 1 > 1950:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+                current_chunk = ""
+            while len(line) > 1950:
+                chunks.append(line[:1950])
+                line = line[1950:]
+            current_chunk = line
+        else:
+            if current_chunk:
+                current_chunk += "\n" + line
+            else:
+                current_chunk = line
+
+    if current_chunk:
+        chunks.append(current_chunk.strip())
+
+    sent_messages: List[discord.Message] = []
+    for chk in chunks:
+        if chk:
+            msg = await target.send(chk)
+            sent_messages.append(msg)
+    return sent_messages
+
+
+def format_flash_news_message(
+    flash_summary: str,
+    headlines: List[Dict[str, Any]],
+    header: Optional[str] = None,
+    importance: str = "MEDIUM",
+    time_str: Optional[str] = None,
+) -> str:
+    """Format Global Flash News as a full-width Discord markdown message."""
+    is_high = importance.upper() == "HIGH" or bool(header)
+    parts = []
+
+    if is_high:
+        h_text = header.strip() if header else "🚨 PILNE • BREAKING NEWS"
+        if not h_text.startswith("###"):
+            h_text = f"### {h_text}"
+        parts.append(h_text)
+
+    if flash_summary:
+        parts.append(quote_text(flash_summary))
+
+    if headlines:
+        sources_text = format_grouped_source_links(headlines[:4])
+        if sources_text:
+            parts.append(f"**🌐 Źródła & Doniesienia:**\n{sources_text}")
+
+    return "\n\n".join(parts)
+
+
+def format_weekly_outlook_message(
+    date_str: str,
+    market_data: Dict[str, Any],
+    outlook_text: str,
+) -> str:
+    """Format Sunday Strategic Weekly Outlook as a full-width Discord markdown message."""
+    parts = [f"## 🗓️ Strategiczny Plan & Horyzont Tygodniowy — {date_str}"]
+
+    if outlook_text:
+        parts.append(quote_text(outlook_text))
+
+    market_lines = []
+    for symbol, info in market_data.items():
+        price = info.get("price", "N/A")
+        change = info.get("change_pct", "0.00%")
+        direction = info.get("direction", "⚪")
+        market_lines.append(f"• **{symbol}**: `{price}` ({direction} {change})")
+
+    if market_lines:
+        parts.append(
+            "### 📊 Notowania Otwarcia Tygodnia (FX • Indeksy • Krypto • Surowce)\n"
+            + "\n".join(market_lines)
+        )
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
+def format_session_advisory_message(
+    session_key: str,
+    date_str: str,
+    market_data: Dict[str, Any],
+    advisory_text: str,
+) -> str:
+    """Format Session Advisory (London, New York, Asia) as a full-width Discord markdown message."""
+    s_clean = session_key.lower().strip()
+    session_config = {
+        "london": {
+            "title": f"## 🇬🇧 Briefing Sesji Londyńskiej (07:00 CET) — {date_str}",
+            "headline": "### 📊 Notowania Przed Otwarciem Europy (DAX • FX Majors)",
+        },
+        "newyork": {
+            "title": f"## 🇺🇸 Briefing Sesji Nowojorskiej (13:30 CET) — {date_str}",
+            "headline": "### 📊 Notowania Przed Wall Street (S&P 500 • DXY • Krypto • Złoto)",
+        },
+        "asia": {
+            "title": f"## 🇯🇵 Briefing Sesji Azjatyckiej (23:00 CET) — {date_str}",
+            "headline": "### 📊 Notowania Przed Sesją Azji (USD/JPY • AUD • Nikkei • BTC)",
+        },
+    }
+
+    cfg = session_config.get(s_clean, session_config["london"])
+    parts = [cfg["title"]]
+
+    if advisory_text:
+        parts.append(quote_text(advisory_text))
+
+    market_lines = []
+    for symbol, info in market_data.items():
+        price = info.get("price", "N/A")
+        change = info.get("change_pct", "0.00%")
+        direction = info.get("direction", "⚪")
+        market_lines.append(f"• **{symbol}**: `{price}` ({direction} {change})")
+
+    if market_lines:
+        parts.append(f"{cfg['headline']}\n" + "\n".join(market_lines))
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
+def format_single_asset_message(
+    symbol: str,
+    asset_data: Dict[str, Any],
+    advisory_text: str,
+) -> str:
+    """Format Single Asset advisory as a full-width Discord markdown message."""
+    price = asset_data.get("price", "N/A")
+    change = asset_data.get("change_pct", "0.00%")
+    direction = asset_data.get("direction", "⚪")
+    ticker = asset_data.get("ticker", "")
+    ticker_str = f" • Ticker: `{ticker}`" if ticker else ""
+
+    parts = [
+        f"## 🎯 Raport dla Waloru: {symbol.upper()}",
+        f"📈 **Aktualny kurs:** `{price}` ({direction} **{change}**){ticker_str}",
+    ]
+
+    if advisory_text:
+        parts.append(quote_text(advisory_text))
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
+def format_calendar_message(
+    date_str: str,
+    calendar_events: List[Dict[str, Any]],
+    calendar_advice: Optional[str] = None,
+) -> str:
+    """Format 24-hour Economic Calendar as a full-width Discord markdown message."""
+    parts = [f"## 📅 24-godzinny Kalendarz Makro (07:00 ➡️ 07:00) — {date_str}"]
+
+    event_lines = []
+    for event in calendar_events[:15]:
+        time = event.get("time", "")
+        currency = event.get("currency", "")
+        title = event.get("title", "")
+        impact = event.get("impact", "🟡")
+        event_lines.append(f"• {impact} `{time}` **[{currency}]** {title}")
+
+    if event_lines:
+        parts.append("### ⏰ Publikacje Dnia & Nocy (07:00 Dzisiaj ➡️ 07:00 Jutro)\n" + "\n".join(event_lines))
+    else:
+        parts.append("### ⏰ Publikacje Dnia & Nocy\n*Brak istotnych publikacji w tym oknie czasowym.*")
+
+    if calendar_advice:
+        parts.append(f"### 💡 Zalecenia AI dla Tradera (Londyn • Nowy Jork • Azja)\n{quote_text(calendar_advice)}")
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
+def format_regional_news_message(
+    region: str,
+    headlines: List[Dict[str, Any]],
+    summary_text: Optional[str] = None,
+) -> str:
+    """Format Regional News Digest as a full-width Discord markdown message."""
+    flags = {
+        "PL": "🇵🇱 Polska / GPW & Biznes",
+        "USA": "🇺🇸 Rynki USA & Gospodarka",
+        "EU": "🇪🇺 Strefa Euro & EBC",
+        "GLOBAL": "🌐 Rynki Globalne & Surowce",
+        "CRYPTO": "🪙 Świat Kryptowalut & Web3",
+        "ALL": "📰 Przegląd Wiadomości Ze Świata (PL, EU, USA)",
+    }
+    title = flags.get(region.upper(), f"📰 Wiadomości: {region}")
+    parts = [f"## {title}"]
+
+    if summary_text:
+        parts.append(quote_text(summary_text))
+
+    items_text = []
+    for h in headlines[:6]:
+        item_title = h.get("title", "").strip()
+        url = h.get("url", "").strip()
+        source = h.get("source", "News")
+        reg = h.get("region", "")
+        reg_badge = f"`[{reg}]` " if reg and region.upper() == "ALL" else ""
+        if url:
+            items_text.append(f"• {reg_badge}[{item_title}]({url}) *({source})*")
+        else:
+            items_text.append(f"• {reg_badge}{item_title} *({source})*")
+
+    if items_text:
+        parts.append("### 🔥 Najważniejsze Nagłówki\n" + "\n".join(items_text))
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
+def format_crypto_news_message(
+    headlines: List[Dict[str, Any]],
+    summary_text: Optional[str] = None,
+) -> str:
+    """Format Crypto & Blockchain Pulse as a full-width Discord markdown message."""
+    return format_regional_news_message("CRYPTO", headlines, summary_text)
+
+
+def format_portfolio_message(
+    portfolio_data: Dict[str, Any],
+    advisory_text: str,
+    portfolio_news: List[Dict[str, Any]],
+) -> str:
+    """Format User Portfolio Overview as a full-width Discord markdown message."""
+    parts = ["## 💼 Twój Portfel Inwestycyjny & Wiadomości Spółek"]
+
+    quote_lines = []
+    for sym, info in portfolio_data.items():
+        price = info.get("price", "N/A")
+        change = info.get("change_pct", "0.00%")
+        direction = info.get("direction", "⚪")
+        quote_lines.append(f"• **{sym}**: `{price}` ({direction} {change})")
+
+    if quote_lines:
+        parts.append("### 📊 Notowania Twoich Spółek\n" + "\n".join(quote_lines))
+
+    if advisory_text:
+        parts.append(f"### 💡 Podsumowanie & Komentarz Portfelowy\n{quote_text(advisory_text)}")
+
+    news_lines = []
+    for h in portfolio_news[:6]:
+        title = h.get("title", "").strip()
+        url = h.get("url", "").strip()
+        source = h.get("source", "News")
+        match = h.get("matched_symbol", "")
+        badge = f"`[{match}]` " if match else ""
+        if url:
+            news_lines.append(f"• {badge}[{title}]({url}) *({source})*")
+        else:
+            news_lines.append(f"• {badge}{title} *({source})*")
+
+    if news_lines:
+        parts.append("### 📰 Ostatnie Komunikaty dla Twoich Spółek\n" + "\n".join(news_lines))
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
+def format_accuracy_message(
+    evaluation_result: Dict[str, Any],
+    stats: Dict[str, Any],
+) -> str:
+    """Format Multi-Tier Accuracy & Performance Tracker as a full-width Discord markdown message."""
+    score = evaluation_result.get("score", 0)
+    eval_date = evaluation_result.get("date", "Wczoraj")
+    session_key = evaluation_result.get("session", "london")
+    breakdown = evaluation_result.get("breakdown", "")
+    conclusions = evaluation_result.get("conclusions", "")
+
+    session_name = {
+        "london": "🇬🇧 Londyn (Europa)",
+        "newyork": "🇺🇸 Nowy Jork (Wall St)",
+        "asia": "🇯🇵 Azja (Tokio/Sydney)",
+    }.get(session_key, "Sesja Handlowa")
+
+    badge = "🎯 Analiza udana" if score > 75 else ("⚖️ Analiza neutralna" if score > 25 else "❌ Analiza nieudana")
+
+    global_st = stats.get("global", stats)
+    sessions_st = stats.get("sessions", {})
+    weekly_st = stats.get("weekly", {})
+
+    lon_st = sessions_st.get("london", {})
+    ny_st = sessions_st.get("newyork", {})
+    asia_st = sessions_st.get("asia", {})
+
+    parts = [
+        "## 📊 Wielopoziomowy Raport Skuteczności • we.trade",
+        (
+            "### 🏆 1. Skuteczność Globalna (All-Time)\n"
+            f"• **Globalny Win-Rate**: `{global_st.get('win_rate', 0.0)}%` (Średnia: `{global_st.get('average_score', 0.0)}/100`)\n"
+            f"• **Wszystkie ewaluacje**: `{global_st.get('total', 0)}` (🎯 `{global_st.get('successful', 0)}` | ⚖️ `{global_st.get('neutral', 0)}` | ❌ `{global_st.get('failed', 0)}`)"
+        ),
+        (
+            f"### 🗓️ 2. Skuteczność Tygodniowa (Tydzień `{weekly_st.get('week_number', 'Bieżący')}`)\n"
+            f"• **Win-Rate tygodnia**: `{weekly_st.get('win_rate', 0.0)}%` | Średnia: `{weekly_st.get('average_score', 0.0)}/100`\n"
+            f"• **Wynik**: `{weekly_st.get('successful', 0)}/{weekly_st.get('total', 0)}` udanych analiz"
+        ),
+        (
+            "### 🎯 3. Skuteczność w Rozbiciu na Sesje\n"
+            f"• 🇬🇧 **Londyn**: Win-Rate `{lon_st.get('win_rate', 0.0)}%` (Śr: `{lon_st.get('average_score', 0.0)}` | `{lon_st.get('successful', 0)}/{lon_st.get('total', 0)}`)\n"
+            f"• 🇺🇸 **Nowy Jork**: Win-Rate `{ny_st.get('win_rate', 0.0)}%` (Śr: `{ny_st.get('average_score', 0.0)}` | `{ny_st.get('successful', 0)}/{ny_st.get('total', 0)}`)\n"
+            f"• 🇯🇵 **Azja**: Win-Rate `{asia_st.get('win_rate', 0.0)}%` (Śr: `{asia_st.get('average_score', 0.0)}` | `{asia_st.get('successful', 0)}/{asia_st.get('total', 0)}`)"
+        ),
+        (
+            "### 📅 4. Wynik Ostatniej Ewaluowanej Sesji\n"
+            f"• **Sesja**: {session_name} (`{eval_date}`) — Wynik: `{score}/100` ({badge})\n"
+            f"• **Weryfikacja rynkowa**:\n{breakdown}"
+        ),
+    ]
+
+    if conclusions:
+        parts.append(f"### 💡 Wnioski i Lekcje Rynkowe\n{quote_text(conclusions)}")
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
+def format_error_message(title: str, description: str) -> str:
+    """Format error notification as a full-width Discord markdown message."""
+    return f"### ⚠️ {title}\n> {description}"

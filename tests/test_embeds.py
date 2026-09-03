@@ -160,3 +160,103 @@ def test_create_session_advisory_embed(sample_market_data):
     # Asia
     asia_embed = create_session_advisory_embed("asia", "Środa, 02.09.2026", sample_market_data, "USD/JPY Long")
     assert "Briefing Sesji Azjatyckiej" in asia_embed.title
+
+
+def test_format_flash_news_message_medium():
+    """Test full-width flash news markdown format for medium importance."""
+    from newsbox.utils.embeds import format_flash_news_message
+
+    headlines = [
+        {"title": "Headline 1", "url": "https://example.com/1", "source": "Reuters"},
+    ]
+    summary = "📰 Fakt rynkowy.\n🎯 Wpływ na walory."
+    msg = format_flash_news_message(flash_summary=summary, headlines=headlines, importance="MEDIUM")
+
+    assert "### 🚨 PILNE" not in msg
+    assert "> 📰 Fakt rynkowy." in msg
+    assert "> 🎯 Wpływ na walory." in msg
+    assert "🌐 Źródła & Doniesienia:" in msg
+    assert "[Headline 1](https://example.com/1)" in msg
+
+
+def test_format_flash_news_message_high():
+    """Test full-width flash news markdown format for high importance."""
+    from newsbox.utils.embeds import format_flash_news_message
+
+    headlines = [
+        {"title": "Breaking Headline", "url": "https://example.com/2", "source": "Bloomberg"},
+    ]
+    summary = "📰 Ważny komunikat.\n🎯 Zmienność na surowcach."
+    header = "🚨 PILNE: Nagła eskalacja"
+    msg = format_flash_news_message(flash_summary=summary, headlines=headlines, header=header, importance="HIGH")
+
+    assert "### 🚨 PILNE: Nagła eskalacja" in msg
+    assert "> 📰 Ważny komunikat." in msg
+    assert "[Breaking Headline](https://example.com/2)" in msg
+
+
+def test_format_session_advisory_message(sample_market_data):
+    """Test full-width session advisory formatting for London session."""
+    from newsbox.utils.embeds import format_session_advisory_message
+
+    msg = format_session_advisory_message(
+        session_key="london",
+        date_str="Czwartek, 03.09.2026",
+        market_data=sample_market_data,
+        advisory_text="🧭 **REŻIM**: Risk-on.\n🟢 **ZALECENIE**: DAX Long.",
+    )
+
+    assert "## 🇬🇧 Briefing Sesji Londyńskiej" in msg
+    assert "> 🧭 **REŻIM**: Risk-on." in msg
+    assert "### 📊 Notowania Przed Otwarciem Europy" in msg
+    assert "DAX" in msg
+    assert "EUR/USD" in msg
+
+
+def test_format_calendar_message():
+    """Test full-width economic calendar message formatting."""
+    from newsbox.utils.embeds import format_calendar_message
+
+    events = [
+        {"time": "08:00", "currency": "GBP", "title": "PKB Wielkiej Brytanii", "impact": "🔴"},
+    ]
+    advice = "Uwaga na podwyższoną zmienność na funcie."
+    msg = format_calendar_message(date_str="Czwartek, 03.09.2026", calendar_events=events, calendar_advice=advice)
+
+    assert "## 📅 24-godzinny Kalendarz Makro" in msg
+    assert "🔴 `08:00` **[GBP]** PKB Wielkiej Brytanii" in msg
+    assert "### 💡 Zalecenia AI dla Tradera" in msg
+    assert "> Uwaga na podwyższoną zmienność" in msg
+
+
+def test_format_portfolio_message():
+    """Test full-width portfolio message formatting."""
+    from newsbox.utils.embeds import format_portfolio_message
+
+    p_data = {"NVDA": {"price": "128.50", "change_pct": "+2.40%", "direction": "🟢"}}
+    p_news = [{"title": "Nowe chipy AI", "url": "https://example.com/chip", "source": "TechNews", "matched_symbol": "NVDA"}]
+    msg = format_portfolio_message(portfolio_data=p_data, advisory_text="Portfel w dobrej kondycji.", portfolio_news=p_news)
+
+    assert "## 💼 Twój Portfel Inwestycyjny" in msg
+    assert "• **NVDA**: `128.50` (🟢 +2.40%)" in msg
+    assert "> Portfel w dobrej kondycji." in msg
+    assert "`[NVDA]` [Nowe chipy AI](https://example.com/chip)" in msg
+
+
+def test_format_accuracy_message():
+    """Test full-width accuracy message formatting."""
+    from newsbox.utils.embeds import format_accuracy_message
+
+    eval_result = {"score": 85, "date": "Wczoraj", "session": "london", "breakdown": "Trafny kierunek na DAX"}
+    stats = {
+        "global": {"total": 10, "successful": 8, "neutral": 1, "failed": 1, "win_rate": 80.0, "average_score": 82.0},
+        "weekly": {"week_number": "36", "total": 4, "successful": 3, "win_rate": 75.0, "average_score": 78.0},
+        "sessions": {"london": {"total": 5, "successful": 4, "win_rate": 80.0, "average_score": 85.0}},
+    }
+    msg = format_accuracy_message(evaluation_result=eval_result, stats=stats)
+
+    assert "## 📊 Wielopoziomowy Raport Skuteczności" in msg
+    assert "Globalny Win-Rate" in msg
+    assert "80.0%" in msg
+    assert "Trafny kierunek na DAX" in msg
+

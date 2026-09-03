@@ -247,7 +247,7 @@ class NewsboxBot(commands.Bot):
     async def on_command_error(self, ctx: commands.Context, error: Exception) -> None:
         """Global error handler for bot commands."""
         logger.warning("Command '%s' error for user %s: %s", ctx.command, ctx.author, error)
-        from newsbox.utils.embeds import create_error_embed
+        from newsbox.utils.embeds import format_error_message, send_full_message
 
         if isinstance(error, commands.CheckFailure):
             err_title = "Brak Uprawnień"
@@ -261,6 +261,6 @@ class NewsboxBot(commands.Bot):
                 err_msg = str(error.original)
 
         try:
-            await ctx.send(embed=create_error_embed(err_title, err_msg))
+            await send_full_message(ctx.channel, format_error_message(err_title, err_msg))
         except Exception:
             pass

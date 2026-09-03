@@ -9,7 +9,12 @@ from newsbox.services.gemini_service import GeminiService
 from newsbox.services.market_service import MarketService
 from newsbox.services.news_service import NewsService
 from newsbox.services.state_service import get_state_manager
-from newsbox.utils.embeds import create_error_embed, create_portfolio_embed
+from newsbox.utils.embeds import (
+    create_error_embed,
+    create_portfolio_embed,
+    format_portfolio_message,
+    send_full_message,
+)
 from newsbox.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -32,8 +37,9 @@ class PortfolioCog(commands.Cog, name="Portfolio Tracker"):
         async with ctx.typing():
             holdings = self.state_manager.get_portfolio_tickers()
             if not holdings:
-                await ctx.send(
-                    "ℹ️ Twój portfel jest pusty. Dodaj spółki komendą: `!portfolio add <symbol>` (np. `!portfolio add CDR.WA` lub `!portfolio add NVDA`)."
+                await send_full_message(
+                    ctx.channel,
+                    "ℹ️ Twój portfel jest pusty. Dodaj spółki komendą: `!portfolio add <symbol>` (np. `!portfolio add CDR.WA` lub `!portfolio add NVDA`).",
                 )
                 return
 
@@ -44,12 +50,12 @@ class PortfolioCog(commands.Cog, name="Portfolio Tracker"):
                 portfolio_news=portfolio_news,
             )
 
-            embed = create_portfolio_embed(
+            msg_text = format_portfolio_message(
                 portfolio_data=portfolio_data,
                 advisory_text=summary_text,
                 portfolio_news=portfolio_news,
             )
-            await ctx.send(embed=embed)
+            await send_full_message(ctx.channel, msg_text)
 
     @portfolio_group.command(name="add", aliases=["dodaj"])
     async def add_symbol(self, ctx: commands.Context, symbol: str) -> None:
@@ -93,12 +99,12 @@ class PortfolioCog(commands.Cog, name="Portfolio Tracker"):
                 portfolio_news=portfolio_news,
             )
 
-            embed = create_portfolio_embed(
+            msg_text = format_portfolio_message(
                 portfolio_data=portfolio_data,
                 advisory_text=summary_text,
                 portfolio_news=portfolio_news,
             )
-            await ctx.send(embed=embed)
+            await send_full_message(ctx.channel, msg_text)
 
 
 async def setup(bot: commands.Bot) -> None:

@@ -26,52 +26,41 @@ class AdminCog(commands.Cog, name="Admin"):
     @commands.command(name="wetrade", aliases=["about", "spolecznosc", "info"])
     async def wetrade_command(self, ctx: commands.Context) -> None:
         """Informacje o społeczności we.trade i funkcjach bota Newsbox."""
-        embed = discord.Embed(
-            title="🌐 Społeczność we.trade & Newsbox Bot",
-            description=(
-                "**Newsbox** to zaawansowany asystent rynkowy AI stworzony dla członków społeczności **we.trade**.\n\n"
-                "🎯 **Misja we.trade**:\n"
-                "Dostarczanie traderom i inwestorom bezkompromisowej przewagi rynkowej dzięki zautomatyzowanym "
-                "raportom makroekonomicznym, analizom sentymentu AI oraz precyzyjnemu trackingowi skuteczności zaleceń.\n\n"
-                "💎 **Główne moduły**:\n"
-                "• `!briefing` — Poranny brief makro (FX Majors, DXY, DAX) o 08:00\n"
-                "• `!accuracy` — Codzienna ewaluacja trafności AI o 12:30\n"
-                "• `!portfolio` — Monitoring wycen i wiadomości Twoich spółek z Wall Street & Krypto\n"
-                "• `!calendar` — Kalendarz ekonomiczny z oceną ryzyk sesyjnych\n"
-                "• `!crypto` — Dedykowany strumień wiadomości ze świata krypto"
-            ),
-            color=0x1ABC9C,
+        from newsbox.utils.embeds import send_full_message
+        msg = (
+            "## 🌐 Społeczność we.trade & Newsbox Bot\n"
+            "> **Newsbox** to zaawansowany asystent rynkowy AI stworzony dla członków społeczności **we.trade**.\n"
+            "> Dostarcza traderom przewagę rynkową dzięki zautomatyzowanym raportom makro, analizom sentymentu AI oraz trackingowi skuteczności.\n\n"
+            "### 💎 Główne Moduły i Komendy\n"
+            "• `!briefing` — Raport makro dla nadchodzącej sesji (`!london`, `!ny`, `!asia`)\n"
+            "• `!weekly` — Niedzielny horyzont strategiczny na cały tydzień (10:00)\n"
+            "• `!flash` — Flash News ze świata i doniesienia rynkowe na żywo (:25, :55)\n"
+            "• `!calendar` — 24-godzinny kalendarz ekonomiczny z oceną ryzyk AI\n"
+            "• `!accuracy` — Wielopoziomowy ranking skuteczności analiz AI\n"
+            "• `!portfolio` — Monitoring i wiadomości spółek z Twojego portfela\n"
+            "• `!news` — Przegląd wiadomości ze świata, USA, Polski i krypto\n\n"
+            f"-# 🏛️ Społeczność: **we.trade** • 🔒 Dostęp VIP: `{self.settings.vip_role_name}`"
         )
-        embed.add_field(name="🏛️ Społeczność", value="**we.trade**", inline=True)
-        embed.add_field(name="🔒 Dostęp VIP", value=f"Rola `{self.settings.vip_role_name}`", inline=True)
-        embed.set_footer(text=BRAND_FOOTER)
-        await ctx.send(embed=embed)
+        await send_full_message(ctx.channel, msg)
 
     @commands.command(name="status")
     async def status(self, ctx: commands.Context) -> None:
         """Wyświetl aktualny stan techniczny bota i aktywne instrumenty."""
-        embed = discord.Embed(
-            title="🤖 Newsbox Bot Status • we.trade",
-            description="Inteligentny bot analityczny dla społeczności **we.trade**.",
-            color=0x43A047,
-        )
-        embed.add_field(name="Społeczność", value="**we.trade**", inline=True)
-        embed.add_field(name="Środowisko", value=f"`{self.settings.environment}`", inline=True)
-        embed.add_field(name="Model AI", value=f"`{self.settings.gemini_model}`", inline=True)
-        embed.add_field(
-            name="Czas Briefingu",
-            value=f"`{self.settings.briefing_time}` ({self.settings.briefing_timezone})",
-            inline=True,
-        )
-        embed.add_field(name="Ewaluacja Accuracy", value=f"`{self.settings.accuracy_time}` (Mon-Fri)", inline=True)
-        embed.add_field(name="Wymagana Rola", value=f"`{self.settings.vip_role_name}`", inline=True)
-
-        # Active tickers
+        from newsbox.utils.embeds import send_full_message
         tickers_str = ", ".join([f"**{k}** (`{v}`)" for k, v in self.settings.tickers.items()])
-        embed.add_field(name="📈 Śledzone Aktywa", value=tickers_str or "Brak", inline=False)
-
-        embed.set_footer(text=BRAND_FOOTER)
-        await ctx.send(embed=embed)
+        msg = (
+            "## 🤖 Newsbox Bot Status • we.trade\n"
+            "> Inteligentny bot analityczny dla społeczności inwestorów i traderów **we.trade**.\n\n"
+            "### ⚙️ Konfiguracja Systemowa\n"
+            f"• **Środowisko:** `{self.settings.environment}`\n"
+            f"• **Model AI:** `{self.settings.gemini_model}`\n"
+            f"• **Harmonogram Sesji:** Londyn `07:00` • Nowy Jork `13:30` • Azja `23:00` (CET)\n"
+            f"• **Harmonogram Flash:** `:25` oraz `:55` w każdej godzinie\n"
+            f"• **Wymagana Rola VIP:** `{self.settings.vip_role_name}`\n\n"
+            f"### 📈 Śledzone Aktywa Bazowe\n{tickers_str or 'Brak'}\n\n"
+            f"-# {BRAND_FOOTER}"
+        )
+        await send_full_message(ctx.channel, msg)
 
     @commands.command(name="reload_prompts", aliases=["przeladuj_prompty"])
     @commands.has_permissions(administrator=True)
