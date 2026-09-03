@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import datetime, time
+import re
 from typing import Any, Dict, List, Optional
 import aiohttp
 
@@ -140,9 +141,29 @@ class NewsService:
             if key not in self._seen_news_keys:
                 unseen_items.append(item)
 
-        # If we found fresh unseen news
+        # If we found fresh unseen news, pick the freshest top story and attach related articles if covering the same topic
         if unseen_items:
-            selected = unseen_items[:limit]
+            top_item = unseen_items[0]
+            # Stop words to ignore when comparing subject overlap
+            stop_words = {"this", "that", "with", "from", "after", "over", "says", "sees", "into", "about", "more", "most"}
+            top_words = {
+                w for w in re.findall(r'\b[a-zA-Z]{4,}\b', top_item.get("title", "").lower())
+                if w not in stop_words
+            }
+
+            selected = [top_item]
+            if limit > 1:
+                for other in unseen_items[1:]:
+                    other_words = {
+                        w for w in re.findall(r'\b[a-zA-Z]{4,}\b', other.get("title", "").lower())
+                        if w not in stop_words
+                    }
+                    # If articles share at least 2 distinct topic keywords (e.g. "iran" + "bases", "fed" + "rates")
+                    if len(top_words.intersection(other_words)) >= 2:
+                        selected.append(other)
+                        if len(selected) >= limit:
+                            break
+
             for item in selected:
                 k = item.get("url", "") or item.get("title", "")
                 self._seen_news_keys.add(k)
@@ -151,7 +172,7 @@ class NewsService:
             if len(self._seen_news_keys) > 500:
                 self._seen_news_keys = set(list(self._seen_news_keys)[-200:])
 
-            logger.info("Found %d fresh unseen global news items for flash news", len(selected))
+            logger.info("Found %d fresh unseen global news items for flash news: '%s'", len(selected), top_item.get("title"))
             return selected
 
         # If all latest news were already seen, pick the single freshest top global headline

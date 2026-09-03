@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from pathlib import Path
-import re
 from typing import Any, Dict, List, Optional
 from newsbox.config import get_settings
 from newsbox.utils.logger import setup_logger
@@ -392,7 +390,7 @@ class GeminiService:
 
         template = self.get_prompt_template(
             "flash_news",
-            default="Oceń wagę newsa (HIGH/MEDIUM/LOW) i zwróć JSON ze statusem, nagłówkiem oraz podsumowaniem:\n{headlines_str}"
+            default="Oceń wagę newsa (HIGH/MEDIUM/LOW) i zwróć JSON ze statusem, nagłówkiem oraz podsumowaniem:\n{headlines_str}",
         )
         try:
             prompt = template.format(headlines_str=news_str)
