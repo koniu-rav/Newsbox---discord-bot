@@ -18,12 +18,12 @@ Evaluate the accuracy on a 0-100% scale using these strict brackets:
 
 ### RESPONSE FORMAT (STRICT JSON ONLY):
 ```json
-{
+{{
   "score": 85,
   "status": "udana",
   "breakdown": "Szczegółowa weryfikacja zaleceń (np. DAX zrealizował ruch wzrostowy, EUR/USD zgodnie z prognozą utrzymał wsparcie).",
   "conclusions": "Kluczowe wnioski i lekcje z przebiegu tej sesji."
-}
+}}
 ```
 Do not include any text outside the JSON block.
 

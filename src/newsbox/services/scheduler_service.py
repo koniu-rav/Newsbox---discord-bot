@@ -195,6 +195,64 @@ class SchedulerService:
         )
         logger.info("Scheduled Global Flash News at :25 and :55 (%s)", self.settings.briefing_timezone)
 
+    def schedule_weekly_portfolio(
+        self,
+        portfolio_job: Callable[[], Coroutine[Any, Any, None]],
+        day_of_week: str = "sun",
+        hour: int = 18,
+        minute: int = 0,
+    ) -> None:
+        """Register weekly portfolio report job (e.g. Sunday 18:00 CET)."""
+        trigger = CronTrigger(
+            day_of_week=day_of_week,
+            hour=hour,
+            minute=minute,
+            timezone=self.settings.briefing_timezone,
+        )
+        self.scheduler.add_job(
+            portfolio_job,
+            trigger=trigger,
+            id="weekly_portfolio_report",
+            name=f"Weekly Portfolio Report ({day_of_week.upper()} {hour:02d}:{minute:02d})",
+            replace_existing=True,
+        )
+        logger.info(
+            "Scheduled Weekly Portfolio Report for %s %02d:%02d (%s)",
+            day_of_week.upper(),
+            hour,
+            minute,
+            self.settings.briefing_timezone,
+        )
+
+    def schedule_daily_portfolio_news(
+        self,
+        portfolio_news_job: Callable[[], Coroutine[Any, Any, None]],
+        hour: int = 14,
+        minute: int = 0,
+        day_of_week: str = "*",
+    ) -> None:
+        """Register daily portfolio company news job (every day at 14:00 CET)."""
+        trigger = CronTrigger(
+            day_of_week=day_of_week,
+            hour=hour,
+            minute=minute,
+            timezone=self.settings.briefing_timezone,
+        )
+        self.scheduler.add_job(
+            portfolio_news_job,
+            trigger=trigger,
+            id="daily_portfolio_news",
+            name=f"Daily Portfolio News ({hour:02d}:{minute:02d})",
+            replace_existing=True,
+        )
+        logger.info(
+            "Scheduled Daily Portfolio News for %s at %02d:%02d (%s)",
+            day_of_week,
+            hour,
+            minute,
+            self.settings.briefing_timezone,
+        )
+
     def start(self) -> None:
         """Start the scheduler background loop."""
         if not self._is_running:

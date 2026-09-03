@@ -458,12 +458,22 @@ class GeminiService:
                 "({start_prices_str}) i końcowych ({end_prices_str}). Zwróć JSON ze score (0-100), status, breakdown i conclusions."
             )
         )
-        prompt = template.format(
-            session_name=session_name,
-            session_advisory=session_advisory,
-            start_prices_str="\n".join(start_lines) or "Brak danych cenowych.",
-            end_prices_str="\n".join(end_lines) or "Brak danych cenowych.",
-        )
+        start_p_str = "\n".join(start_lines) or "Brak danych cenowych."
+        end_p_str = "\n".join(end_lines) or "Brak danych cenowych."
+        try:
+            prompt = template.format(
+                session_name=session_name,
+                session_advisory=session_advisory,
+                start_prices_str=start_p_str,
+                end_prices_str=end_p_str,
+            )
+        except Exception:
+            prompt = (
+                template.replace("{session_name}", session_name)
+                .replace("{session_advisory}", session_advisory)
+                .replace("{start_prices_str}", start_p_str)
+                .replace("{end_prices_str}", end_p_str)
+            )
 
         fallback = {
             "score": 80,

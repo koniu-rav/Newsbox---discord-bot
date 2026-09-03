@@ -101,6 +101,12 @@ class NewsboxBot(commands.Bot):
         # 6. Schedule Periodic Global Flash News (:25 and :55)
         self.scheduler.schedule_periodic_flash_news(self.dispatch_scheduled_flash_news, minute_cron="25,55")
 
+        # 7. Schedule Weekly Portfolio Report (Sunday 18:00 CET)
+        self.scheduler.schedule_weekly_portfolio(self.dispatch_scheduled_weekly_portfolio, day_of_week="sun", hour=18, minute=0)
+
+        # 8. Schedule Daily Portfolio News at 14:00 CET (channel 1544262150455955516)
+        self.scheduler.schedule_daily_portfolio_news(self.dispatch_scheduled_daily_portfolio_news, hour=14, minute=0)
+
         self.scheduler.start()
 
     async def on_ready(self) -> None:
@@ -232,6 +238,40 @@ class NewsboxBot(commands.Bot):
             channel = await self._resolve_channel(flash_ch_id)
             if channel:
                 await news_cog.compile_and_send_flash_news(channel)
+
+    async def dispatch_scheduled_weekly_portfolio(self) -> None:
+        """Executed weekly (Sunday 18:00 CET) to dispatch portfolio summary report."""
+        logger.info("Triggering scheduled weekly portfolio report dispatch...")
+        portfolio_cog = self.get_cog("Portfolio Tracker")
+        if not portfolio_cog:
+            return
+
+        port_ch_id = (
+            self.state_manager.get_channel("portfolio")
+            or self.settings.discord_portfolio_channel_id
+            or 1544262150455955516
+        )
+        if port_ch_id:
+            channel = await self._resolve_channel(port_ch_id)
+            if channel:
+                await portfolio_cog.compile_and_send_portfolio_report(channel)
+
+    async def dispatch_scheduled_daily_portfolio_news(self) -> None:
+        """Executed daily at 14:00 CET to dispatch company news for portfolio tickers to channel 1544262150455955516."""
+        logger.info("Triggering scheduled 14:00 CET daily portfolio news dispatch...")
+        portfolio_cog = self.get_cog("Portfolio Tracker")
+        if not portfolio_cog:
+            return
+
+        news_ch_id = (
+            self.state_manager.get_channel("portfolio_news")
+            or self.settings.discord_portfolio_news_channel_id
+            or 1544262150455955516
+        )
+        if news_ch_id:
+            channel = await self._resolve_channel(news_ch_id)
+            if channel:
+                await portfolio_cog.compile_and_send_portfolio_news(channel)
 
     async def _resolve_channel(self, channel_id: int) -> Optional[discord.abc.Messageable]:
         """Fetch or get channel by ID."""

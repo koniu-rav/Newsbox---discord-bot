@@ -31,14 +31,13 @@ class PortfolioCog(commands.Cog, name="Portfolio Tracker"):
         self.news_service = NewsService()
         self.gemini_service = GeminiService()
 
-    @commands.group(name="portfolio", aliases=["portfel", "spolki"], invoke_without_command=True)
-    async def portfolio_group(self, ctx: commands.Context) -> None:
-        """Pokaż aktualne notowania i podsumowanie spółek z Twojego portfela."""
-        async with ctx.typing():
+    async def compile_and_send_portfolio_report(self, channel: discord.abc.Messageable) -> None:
+        """Fetch quotes, news, and AI commentary for portfolio holdings and send to channel."""
+        try:
             holdings = self.state_manager.get_portfolio_tickers()
             if not holdings:
                 await send_full_message(
-                    ctx.channel,
+                    channel,
                     "ℹ️ Twój portfel jest pusty. Dodaj spółki komendą: `!portfolio add <symbol>` (np. `!portfolio add CDR.WA` lub `!portfolio add NVDA`).",
                 )
                 return
@@ -55,7 +54,43 @@ class PortfolioCog(commands.Cog, name="Portfolio Tracker"):
                 advisory_text=summary_text,
                 portfolio_news=portfolio_news,
             )
-            await send_full_message(ctx.channel, msg_text)
+            await send_full_message(channel, msg_text)
+            logger.info("Successfully dispatched portfolio report to %s", channel)
+        except Exception as e:
+            logger.error("Failed to dispatch portfolio report: %s", e, exc_info=True)
+            await send_full_message(channel, f"⚠️ Wystąpił błąd podczas generowania raportu portfela: {e}")
+
+    async def compile_and_send_portfolio_news(self, channel: discord.abc.Messageable) -> None:
+        """Fetch news and AI commentary dedicated to portfolio companies and send to channel."""
+        try:
+            holdings = self.state_manager.get_portfolio_tickers()
+            if not holdings:
+                await send_full_message(channel, "ℹ️ Twój portfel jest pusty. Dodaj spółki komendą: `!portfolio add <symbol>`.")
+                return
+
+            portfolio_news = await self.news_service.fetch_portfolio_news(holdings, limit=8)
+            portfolio_data = await self.market_service.fetch_portfolio_snapshot(holdings)
+            summary_text = await self.gemini_service.generate_portfolio_summary(
+                portfolio_data=portfolio_data,
+                portfolio_news=portfolio_news,
+            )
+
+            msg_text = format_portfolio_message(
+                portfolio_data=portfolio_data,
+                advisory_text=summary_text,
+                portfolio_news=portfolio_news,
+            )
+            await send_full_message(channel, msg_text)
+            logger.info("Successfully dispatched portfolio news to %s", channel)
+        except Exception as e:
+            logger.error("Failed to dispatch portfolio news: %s", e, exc_info=True)
+            await send_full_message(channel, f"⚠️ Wystąpił błąd podczas publikacji wiadomości portfelowych: {e}")
+
+    @commands.group(name="portfolio", aliases=["portfel", "spolki"], invoke_without_command=True)
+    async def portfolio_group(self, ctx: commands.Context) -> None:
+        """Pokaż aktualne notowania i podsumowanie spółek z Twojego portfela."""
+        async with ctx.typing():
+            await self.compile_and_send_portfolio_report(ctx.channel)
 
     @portfolio_group.command(name="add", aliases=["dodaj"])
     async def add_symbol(self, ctx: commands.Context, symbol: str) -> None:
@@ -87,24 +122,7 @@ class PortfolioCog(commands.Cog, name="Portfolio Tracker"):
     async def portfolio_news_cmd(self, ctx: commands.Context) -> None:
         """Pobierz najświeższe komunikaty i newsy tylko dla spółek z Twojego portfela."""
         async with ctx.typing():
-            holdings = self.state_manager.get_portfolio_tickers()
-            if not holdings:
-                await ctx.send("ℹ️ Twój portfel jest pusty. Dodaj spółki komendą: `!portfolio add <symbol>`.")
-                return
-
-            portfolio_news = await self.news_service.fetch_portfolio_news(holdings, limit=8)
-            portfolio_data = await self.market_service.fetch_portfolio_snapshot(holdings)
-            summary_text = await self.gemini_service.generate_portfolio_summary(
-                portfolio_data=portfolio_data,
-                portfolio_news=portfolio_news,
-            )
-
-            msg_text = format_portfolio_message(
-                portfolio_data=portfolio_data,
-                advisory_text=summary_text,
-                portfolio_news=portfolio_news,
-            )
-            await send_full_message(ctx.channel, msg_text)
+            await self.compile_and_send_portfolio_news(ctx.channel)
 
 
 async def setup(bot: commands.Bot) -> None:

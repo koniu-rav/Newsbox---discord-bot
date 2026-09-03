@@ -217,6 +217,10 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 await send_full_message(channel, msg_text)
         except Exception as e:
             logger.error("Failed to compile session accuracy report: %s", e, exc_info=True)
+            await send_full_message(
+                channel,
+                format_error_message("Błąd Raportu Skuteczności", f"Nie udało się wygenerować raportu dla sesji {session_key}: {e}"),
+            )
 
     async def compile_and_send_accuracy_report(self, channel: discord.abc.Messageable) -> None:
         """Legacy / general accuracy command: evaluates the latest pending session or displays multi-tier report."""
@@ -235,6 +239,10 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                     await self.compile_and_send_session_accuracy(channel, session_key="london")
         except Exception as e:
             logger.error("Failed to compile accuracy report: %s", e, exc_info=True)
+            await send_full_message(
+                channel,
+                format_error_message("Błąd Raportu Skuteczności", f"Wystąpił błąd podczas generowania statystyk: {e}"),
+            )
 
     async def compile_and_send_single_asset(
         self,

@@ -20,12 +20,12 @@ Assess each recommendation (e.g. Long, Short, Avoid, Range) against what the mar
 
 OUTPUT FORMAT: Return STRICT JSON ONLY with the following schema:
 ```json
-{
+{{
   "score": 85,
   "status": "udana",
   "breakdown": "• DAX: Trafny sygnał Long (+1.2%)\n• EUR/USD: Trafne zalecenie unikania (konsolidacja)\n• DXY: Zgodny ruch spadkowy",
   "conclusions": "Kluczowe wnioski: Wysoka korelacja z osłabieniem dolara pozwoliła na realizację zysków na indeksach europejskich."
-}
+}}
 ```
 Language: Polish.
 
