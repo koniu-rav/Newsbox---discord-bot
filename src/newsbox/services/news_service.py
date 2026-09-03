@@ -33,8 +33,9 @@ REGIONAL_FEEDS = {
         {"name": "Decrypt", "url": "https://decrypt.co/feed"},
     ],
     "GLOBAL": [
-        {"name": "Investing.com", "url": "https://www.investing.com/rss/news_25.rss"},
-        {"name": "Investing.com", "url": "https://www.investing.com/rss/news.rss"},
+        {"name": "Investing.com", "url": "https://www.investing.com/rss/news_14.rss"},
+        {"name": "Investing.com", "url": "https://www.investing.com/rss/news_11.rss"},
+        {"name": "Investing.com", "url": "https://www.investing.com/rss/news_285.rss"},
         {"name": "MarketWatch", "url": "https://feeds.content.dowjones.io/public/rss/mw_realtimeheadlines"},
         {"name": "Reuters", "url": "https://www.reutersagency.com/feed/?best-topics=business-finance&post_type=best"},
     ],
@@ -107,13 +108,25 @@ class NewsService:
         # Sort strictly newest first
         combined.sort(key=lambda x: x.get("published_ts", 0.0), reverse=True)
 
-        # Deduplicate
+        # Noise filter for retail stock clickbait and non-macro articles
+        noise_phrases = [
+            "why is", "surging today", "falling today", "down today", "up today",
+            "stocks to buy", "top stocks", "stocks to watch", "earnings call",
+            "price target", "dividend aristocrats", "how to buy", "why shares of",
+        ]
+
+        # Deduplicate & filter noise
         deduped = []
         seen = set()
         for item in combined:
-            title_key = item["title"].lower().strip()
-            if title_key not in seen and len(title_key) > 5:
-                seen.add(title_key)
+            title_clean = item.get("title", "").strip()
+            title_lower = title_clean.lower()
+
+            if any(np in title_lower for np in noise_phrases):
+                continue
+
+            if title_lower not in seen and len(title_lower) > 5:
+                seen.add(title_lower)
                 deduped.append(item)
 
         unseen_items: List[Dict[str, Any]] = []

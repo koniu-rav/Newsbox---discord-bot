@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Optional
 from newsbox.config import get_settings
 from newsbox.utils.logger import setup_logger
@@ -360,17 +362,27 @@ class GeminiService:
         ]
         is_urgent = any(any(kw in h.get("title", "").lower() for kw in urgent_keywords) for h in headlines)
 
-        default_fallback = {
-            "importance": "HIGH" if is_urgent else "MEDIUM",
-            "header": "🚨 PILNE: Istotne doniesienie rynkowe" if is_urgent else None,
-            "summary": (
-                f"📰 {first_title}.\n"
-                f"🎯 Możliwa podwyższona zmienność na `DXY`, `EUR/USD`, `Złoto` oraz głównych indeksach giełdowych."
-            ),
-        }
+        if is_urgent:
+            default_fallback = {
+                "importance": "HIGH",
+                "header": "🚨 PILNE: Istotne doniesienie rynkowe",
+                "summary": (
+                    f"📰 {first_title}.\n"
+                    f"🎯 Możliwa podwyższona zmienność na rynkach bazowych."
+                ),
+            }
+        else:
+            default_fallback = None
 
         if not self._client:
-            return default_fallback
+            return default_fallback or {
+                "importance": "MEDIUM",
+                "header": None,
+                "summary": (
+                    f"📰 {first_title}.\n"
+                    f"🎯 Monitorowanie potencjalnego wpływu na powiązane instrumenty."
+                ),
+            }
 
         news_lines = [
             f"- {h.get('title', '')} (Źródło: {h.get('source', '')}, Region: {h.get('region', '')})"
