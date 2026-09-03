@@ -48,6 +48,14 @@ class AdminCog(commands.Cog, name="Admin"):
         """Wyświetl aktualny stan techniczny bota i aktywne instrumenty."""
         from newsbox.utils.embeds import send_full_message
         tickers_str = ", ".join([f"**{k}** (`{v}`)" for k, v in self.settings.tickers.items()])
+
+        news_cog = self.bot.get_cog("News Feed")
+        if news_cog and getattr(news_cog, "last_flash_audit", None):
+            audit = news_cog.last_flash_audit
+            flash_info = f"`{audit.get('time', '')}` • {audit.get('action', '')}"
+        else:
+            flash_info = "Oczekuje na pierwszy cykl (:25, :55)"
+
         msg = (
             "## 🤖 Newsbox Bot Status • we.trade\n"
             "> Inteligentny bot analityczny dla społeczności inwestorów i traderów **we.trade**.\n\n"
@@ -56,6 +64,7 @@ class AdminCog(commands.Cog, name="Admin"):
             f"• **Model AI:** `{self.settings.gemini_model}`\n"
             f"• **Harmonogram Sesji:** Londyn `07:00` • Nowy Jork `13:30` • Azja `23:00` (CET)\n"
             f"• **Harmonogram Flash:** `:25` oraz `:55` w każdej godzinie\n"
+            f"• **Status Flash News:** {flash_info}\n"
             f"• **Wymagana Rola VIP:** `{self.settings.vip_role_name}`\n\n"
             f"### 📈 Śledzone Aktywa Bazowe\n{tickers_str or 'Brak'}\n\n"
             f"-# {BRAND_FOOTER}"

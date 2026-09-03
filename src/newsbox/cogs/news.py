@@ -72,8 +72,25 @@ class NewsCog(commands.Cog, name="News Feed"):
 
             flash_data = await self.gemini_service.generate_flash_news_summary(headlines)
 
-            # Skip publication if news is unimportant / noise
-            if not flash_data or flash_data.get("importance") == "LOW" or not flash_data.get("summary"):
+            # Skip publication if news is unimportant (LOW) or if an error occurred
+            if not flash_data or not flash_data.get("summary"):
+                err_msg = self.gemini_service.last_error
+                if err_msg:
+                    logger.warning("Flash news aborted due to error: %s", err_msg)
+                    self.last_flash_audit = {
+                        "time": now_warsaw,
+                        "headline": main_headline,
+                        "source": main_source,
+                        "importance": "ERROR",
+                        "action": f"⚠️ Błąd: {err_msg} (pominięto publikację)",
+                    }
+                    if is_manual:
+                        await send_full_message(
+                            channel,
+                            f"⚠️ Nie udało się wygenerować Flash News: **{err_msg}**.\nSzczegóły: `!flash status`."
+                        )
+                    return
+
                 logger.info("Flash news skipped: AI evaluated '%s' as LOW importance / noise.", main_headline)
                 self.last_flash_audit = {
                     "time": now_warsaw,
@@ -83,13 +100,10 @@ class NewsCog(commands.Cog, name="News Feed"):
                     "action": "⚪ Pominięto: AI oceniło news jako nieważny / szum bez istotnego wpływu na rynki.",
                 }
                 if is_manual:
-                    # For manual commands, send standard medium fallback
-                    msg_text = format_flash_news_message(
-                        flash_summary=f"📰 {main_headline}.\n🎯 Brak bezpośredniego, gwałtownego wpływu na rynki bazowe.",
-                        headlines=headlines,
-                        importance="MEDIUM",
+                    await send_full_message(
+                        channel,
+                        f"ℹ️ Najnowsze doniesienie (*{main_headline}*) zostało ocenione jako szum o niskim impakcie (`LOW`) — **pominięto publikację**."
                     )
-                    await send_full_message(channel, msg_text)
                 return
 
             importance = flash_data.get("importance", "MEDIUM")
@@ -114,6 +128,15 @@ class NewsCog(commands.Cog, name="News Feed"):
             logger.info("Successfully dispatched flash news (importance=%s) to %s: %s", importance, channel, main_headline)
         except Exception as e:
             logger.error("Failed to dispatch flash news: %s", e, exc_info=True)
+            self.last_flash_audit = {
+                "time": now_warsaw if "now_warsaw" in locals() else "N/A",
+                "headline": main_headline if "main_headline" in locals() else "N/A",
+                "source": main_source if "main_source" in locals() else "N/A",
+                "importance": "ERROR",
+                "action": f"⚠️ Błąd krytyczny: {e} (pominięto publikację)",
+            }
+            if is_manual:
+                await send_full_message(channel, f"⚠️ Wystąpił błąd podczas pobierania Flash News: {e}")
 
     @commands.command(name="news", aliases=["wiadomosci", "parkiet"])
     async def news_command(self, ctx: commands.Context, region: str = "ALL") -> None:
@@ -175,10 +198,18 @@ class NewsCog(commands.Cog, name="News Feed"):
                 await send_full_message(ctx.channel, "ℹ️ Bot nie przeprowadził jeszcze żadnej automatycznej oceny Flash News od ostatniego restartu.")
                 return
 
+            imp = self.last_flash_audit.get("importance", "N/A")
+            imp_badge = (
+                "🔴 PILNE (HIGH)" if imp == "HIGH"
+                else ("🔵 STANDARD (MEDIUM)" if imp == "MEDIUM"
+                else ("⚪ POMINIĘTE (LOW)" if imp == "LOW"
+                else ("⚠️ BŁĄD SYSTEMU" if imp == "ERROR" else f"`{imp}`")))
+            )
+
             status_msg = (
                 "## 🔍 Status Ostatniej Oceny Flash News • AI Audit\n"
                 f"• **Czas sprawdzenia:** `{self.last_flash_audit.get('time', 'N/A')}`\n"
-                f"• **Ocena Wagi AI:** `{self.last_flash_audit.get('importance', 'N/A')}`\n"
+                f"• **Status / Waga:** {imp_badge}\n"
                 f"• **Sprawdzony Nagłówek:** {self.last_flash_audit.get('headline', 'Brak')} *({self.last_flash_audit.get('source', '')})*\n"
                 f"• **Podjęta Akcja:** {self.last_flash_audit.get('action', 'Brak')}"
             )

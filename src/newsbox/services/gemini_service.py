@@ -26,12 +26,14 @@ class GeminiService:
         self.prompts_dir = Path(prompts_dir or self.settings.prompts_dir)
         self._client = None
         self._prompt_cache: Dict[str, str] = {}
+        self.last_error: Optional[str] = None
         self._initialize_client()
         self.load_prompts()
 
     def _initialize_client(self) -> None:
         """Initialize Google GenAI client if api_key is present."""
         if not self.api_key:
+            self.last_error = "Brak klucza GEMINI_API_KEY"
             logger.warning("Gemini API key is not configured. AI will use mock responses.")
             return
 
@@ -347,40 +349,15 @@ class GeminiService:
 
     async def generate_flash_news_summary(self, headlines: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Generate an ultra-concise flash bulletin with importance evaluation (HIGH, MEDIUM, LOW).
-        Returns None if news is assessed as LOW importance (noise/irrelevant).
+        Returns None if news is assessed as LOW importance (noise/irrelevant) or if an error occurs.
+        No rigid dummy fallback message is ever returned.
         """
         if not headlines:
             return None
 
-        first_title = headlines[0].get("title", "Wydarzenie rynkowe")
-        urgent_keywords = [
-            "war", "strike", "attack", "missile", "crisis", "emergency",
-            "rate hike", "rate cut", "breaking", "crash", "fed", "ecb",
-            "iran", "israel", "ukraine", "russia", "wojna", "atak", "nalot"
-        ]
-        is_urgent = any(any(kw in h.get("title", "").lower() for kw in urgent_keywords) for h in headlines)
-
-        if is_urgent:
-            default_fallback = {
-                "importance": "HIGH",
-                "header": "🚨 PILNE: Istotne doniesienie rynkowe",
-                "summary": (
-                    f"📰 {first_title}.\n"
-                    f"🎯 Możliwa podwyższona zmienność na rynkach bazowych."
-                ),
-            }
-        else:
-            default_fallback = None
-
         if not self._client:
-            return default_fallback or {
-                "importance": "MEDIUM",
-                "header": None,
-                "summary": (
-                    f"📰 {first_title}.\n"
-                    f"🎯 Monitorowanie potencjalnego wpływu na powiązane instrumenty."
-                ),
-            }
+            self.last_error = "Brak zainicjalizowanego klienta Gemini API"
+            return None
 
         news_lines = [
             f"- {h.get('title', '')} (Źródło: {h.get('source', '')}, Region: {h.get('region', '')})"
@@ -399,7 +376,9 @@ class GeminiService:
 
         raw_response = await self._call_gemini(prompt, fallback_msg="")
         if not raw_response:
-            return default_fallback
+            if not self.last_error:
+                self.last_error = "Brak odpowiedzi od Gemini API dla zapytania Flash News"
+            return None
 
         try:
             clean_json = raw_response
@@ -411,6 +390,7 @@ class GeminiService:
             parsed = json.loads(clean_json, strict=False)
             importance = str(parsed.get("importance", "MEDIUM")).upper().strip()
             if importance == "LOW":
+                self.last_error = None
                 return None
 
             header = parsed.get("header")
@@ -419,27 +399,31 @@ class GeminiService:
 
             summary = parsed.get("summary")
             if not summary:
-                summary = default_fallback["summary"]
+                self.last_error = "Odpowiedź AI nie zawierała pola summary"
+                return None
 
+            self.last_error = None
             return {
                 "importance": importance if importance in ["HIGH", "MEDIUM"] else "MEDIUM",
                 "header": header,
                 "summary": str(summary).strip(),
             }
         except Exception as e:
-            logger.warning("Failed to parse JSON from flash news Gemini response: %s. Using text fallback.", e)
+            logger.warning("Failed to parse JSON from flash news Gemini response: %s", e)
             if "📰" in raw_response:
                 sub_text = raw_response[raw_response.index("📰"):]
                 for stop_tok in ['",\n', '"\n}', '"}', "```"]:
                     if stop_tok in sub_text:
                         sub_text = sub_text.split(stop_tok)[0]
                 cleaned_summary = sub_text.replace('\\n', '\n').replace('\\"', '"').rstrip('"').strip()
+                self.last_error = None
                 return {
                     "importance": "HIGH" if ("🚨" in raw_response or "PILNE" in raw_response) else "MEDIUM",
                     "header": "🚨 PILNE: Istotne doniesienie rynkowe" if ("🚨" in raw_response or "PILNE" in raw_response) else None,
                     "summary": cleaned_summary,
                 }
-            return default_fallback
+            self.last_error = f"Błąd parsowania odpowiedzi AI: {e}"
+            return None
 
     async def evaluate_session_performance(
         self,
@@ -536,6 +520,7 @@ class GeminiService:
             )
             if response:
                 if hasattr(response, "text") and response.text:
+                    self.last_error = None
                     return response.text.strip()
                 if hasattr(response, "candidates") and response.candidates:
                     parts_text = []
@@ -545,8 +530,11 @@ class GeminiService:
                                 if hasattr(p, "text") and p.text:
                                     parts_text.append(p.text)
                     if parts_text:
+                        self.last_error = None
                         return "".join(parts_text).strip()
+            self.last_error = "Gemini API zwróciło pustą odpowiedź"
             return fallback_msg
         except Exception as e:
+            self.last_error = f"Błąd Gemini API ({type(e).__name__}): {e}"
             logger.error("Gemini API call failed: %s", e)
             return fallback_msg
