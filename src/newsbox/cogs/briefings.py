@@ -24,6 +24,7 @@ from newsbox.utils.embeds import (
     format_error_message,
     format_session_advisory_message,
     format_single_asset_message,
+    format_weekly_accuracy_message,
     format_weekly_outlook_message,
     send_full_message,
 )
@@ -222,6 +223,66 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 format_error_message("Błąd Raportu Skuteczności", f"Nie udało się wygenerować raportu dla sesji {session_key}: {e}"),
             )
 
+    async def evaluate_session_quietly(self, session_key: str = "london") -> None:
+        """Evaluate a concluded session and record into history quietly without sending any Discord message."""
+        try:
+            s_clean = session_key.lower().strip()
+            pending = self.accuracy_service.get_pending_session_to_evaluate(session=s_clean)
+            if not pending:
+                return
+
+            current_market = await self.market_service.fetch_market_snapshot()
+            eval_date = pending.get("date", "Wczoraj")
+            start_snapshot = pending.get("market_snapshot", {})
+            advisory = pending.get("advisory_text", "")
+
+            eval_dict = await self.gemini_service.evaluate_session_performance(
+                session_key=s_clean,
+                session_advisory=advisory,
+                start_prices=start_snapshot,
+                end_prices=current_market,
+            )
+
+            self.accuracy_service.record_session_evaluation(
+                session=s_clean,
+                date_str=eval_date,
+                score=eval_dict.get("score", 75),
+                breakdown=eval_dict.get("breakdown", ""),
+                conclusions=eval_dict.get("conclusions", ""),
+            )
+            logger.info("Quietly evaluated and recorded %s session for %s (score=%d)", s_clean, eval_date, eval_dict.get("score", 75))
+        except Exception as e:
+            logger.warning("Quiet session evaluation failed for %s: %s", session_key, e)
+
+    async def compile_and_send_weekly_accuracy(self, channel: discord.abc.Messageable) -> None:
+        """Compile and dispatch Saturday 12:00 PM comprehensive weekly accuracy report."""
+        try:
+            # 1. Evaluate any leftover pending sessions
+            for s_key in ["london", "newyork", "asia"]:
+                await self.evaluate_session_quietly(s_key)
+
+            multi_tier_stats = self.accuracy_service.get_multi_tier_stats()
+            evals = self.accuracy_service._data.get("evaluations", [])
+
+            # Current or latest week evals
+            current_week = multi_tier_stats.get("weekly", {}).get("week_number")
+            week_evals = [e for e in evals if e.get("week_number") == current_week]
+            if not week_evals and evals:
+                week_evals = evals[-7:]
+
+            msg_text = format_weekly_accuracy_message(
+                stats=multi_tier_stats,
+                week_evaluations=week_evals,
+            )
+            await send_full_message(channel, msg_text)
+            logger.info("Successfully dispatched Weekly Accuracy Report to %s", channel)
+        except Exception as e:
+            logger.error("Failed to compile weekly accuracy report: %s", e, exc_info=True)
+            await send_full_message(
+                channel,
+                format_error_message("Błąd Raportu Skuteczności", f"Nie udało się wygenerować raportu tygodniowego: {e}"),
+            )
+
     async def compile_and_send_accuracy_report(self, channel: discord.abc.Messageable) -> None:
         """Legacy / general accuracy command: evaluates the latest pending session or displays multi-tier report."""
         try:
@@ -355,12 +416,12 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
 
     @commands.command(name="accuracy", aliases=["skutecznosc", "wyniki", "stats"])
     async def accuracy_command(self, ctx: commands.Context, session: Optional[str] = None) -> None:
-        """Wyświetl wielopoziomowy raport skuteczności (Global, Weekly, Daily, Sessions)."""
+        """Wyświetl raport skuteczności AI (Domyślnie Tygodniowy lub w rozbiciu na sesję: london, ny, asia)."""
         async with ctx.typing():
             if session and session.lower().strip() in VALID_SESSIONS:
                 await self.compile_and_send_session_accuracy(ctx.channel, session_key=session.lower().strip())
             else:
-                await self.compile_and_send_accuracy_report(ctx.channel)
+                await self.compile_and_send_weekly_accuracy(ctx.channel)
 
 
 async def setup(bot: commands.Bot) -> None:

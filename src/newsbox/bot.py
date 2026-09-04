@@ -90,21 +90,21 @@ class NewsboxBot(commands.Bot):
         # 4. Schedule Mon-Fri 23:00 PM Asia Session Briefing (1h before pre-market)
         self.scheduler.schedule_session_briefing("asia", self.dispatch_scheduled_asia_briefing, hour=23, minute=0)
 
-        # 5. Schedule Mon-Fri Session Accuracy Evaluations
-        # London evaluated at 17:30 CET (close of European cash)
+        # 5. Quiet Background Session Accuracy Evaluations (records performance without Discord chat spam)
         self.scheduler.schedule_session_evaluation("london", self.dispatch_scheduled_london_eval, hour=17, minute=30)
-        # New York evaluated at 22:00 CET (Wall St close)
         self.scheduler.schedule_session_evaluation("newyork", self.dispatch_scheduled_ny_eval, hour=22, minute=0)
-        # Asia evaluated at 07:00 CET next morning
         self.scheduler.schedule_session_evaluation("asia", self.dispatch_scheduled_asia_eval, hour=7, minute=0)
 
-        # 6. Schedule Periodic Global Flash News (:25 and :55)
+        # 6. Schedule Saturday 12:00 PM Weekly Accuracy Report (single weekly status)
+        self.scheduler.schedule_weekly_accuracy(self.dispatch_scheduled_weekly_accuracy, day_of_week="sat", hour=12, minute=0)
+
+        # 7. Schedule Periodic Global Flash News (:25 and :55)
         self.scheduler.schedule_periodic_flash_news(self.dispatch_scheduled_flash_news, minute_cron="25,55")
 
-        # 7. Schedule Weekly Portfolio Report (Sunday 18:00 CET)
+        # 8. Schedule Weekly Portfolio Report (Sunday 18:00 CET)
         self.scheduler.schedule_weekly_portfolio(self.dispatch_scheduled_weekly_portfolio, day_of_week="sun", hour=18, minute=0)
 
-        # 8. Schedule Daily Portfolio News at 14:00 CET (channel 1544262150455955516)
+        # 9. Schedule Daily Portfolio News at 14:00 CET (channel 1544262150455955516)
         self.scheduler.schedule_daily_portfolio_news(self.dispatch_scheduled_daily_portfolio_news, hour=14, minute=0)
 
         self.scheduler.start()
@@ -167,45 +167,33 @@ class NewsboxBot(commands.Bot):
                 await briefings_cog.compile_and_send_session_briefing(channel, session_key="asia", is_scheduled=True)
 
     async def dispatch_scheduled_london_eval(self) -> None:
-        """Executed at 17:30 PM to evaluate London session accuracy."""
-        logger.info("Triggering scheduled 17:30 PM London session accuracy evaluation...")
+        """Executed at 17:30 PM to evaluate London session accuracy quietly into history."""
+        logger.info("Executing quiet background evaluation for London session...")
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
-        if not briefings_cog:
-            return
-        acc_ch_id = (
-            self.state_manager.get_channel("accuracy")
-            or self.settings.discord_accuracy_channel_id
-            or self.state_manager.get_channel("macro")
-            or self.settings.macro_channel_id
-        )
-        if acc_ch_id:
-            channel = await self._resolve_channel(acc_ch_id)
-            if channel:
-                await briefings_cog.compile_and_send_session_accuracy(channel, session_key="london")
+        if briefings_cog:
+            await briefings_cog.evaluate_session_quietly(session_key="london")
 
     async def dispatch_scheduled_ny_eval(self) -> None:
-        """Executed at 22:00 PM to evaluate New York session accuracy."""
-        logger.info("Triggering scheduled 22:00 PM New York session accuracy evaluation...")
+        """Executed at 22:00 PM to evaluate New York session accuracy quietly into history."""
+        logger.info("Executing quiet background evaluation for New York session...")
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
-        if not briefings_cog:
-            return
-        acc_ch_id = (
-            self.state_manager.get_channel("accuracy")
-            or self.settings.discord_accuracy_channel_id
-            or self.state_manager.get_channel("macro")
-            or self.settings.macro_channel_id
-        )
-        if acc_ch_id:
-            channel = await self._resolve_channel(acc_ch_id)
-            if channel:
-                await briefings_cog.compile_and_send_session_accuracy(channel, session_key="newyork")
+        if briefings_cog:
+            await briefings_cog.evaluate_session_quietly(session_key="newyork")
 
     async def dispatch_scheduled_asia_eval(self) -> None:
-        """Executed at 07:00 AM to evaluate Asia session accuracy."""
-        logger.info("Triggering scheduled 07:00 AM Asia session accuracy evaluation...")
+        """Executed at 07:00 AM to evaluate Asia session accuracy quietly into history."""
+        logger.info("Executing quiet background evaluation for Asia session...")
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if briefings_cog:
+            await briefings_cog.evaluate_session_quietly(session_key="asia")
+
+    async def dispatch_scheduled_weekly_accuracy(self) -> None:
+        """Executed automatically on Saturday at 12:00 PM to dispatch the single Weekly Accuracy Report."""
+        logger.info("Triggering scheduled Saturday 12:00 PM Weekly Accuracy Report dispatch...")
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
         if not briefings_cog:
             return
+
         acc_ch_id = (
             self.state_manager.get_channel("accuracy")
             or self.settings.discord_accuracy_channel_id
@@ -215,7 +203,7 @@ class NewsboxBot(commands.Bot):
         if acc_ch_id:
             channel = await self._resolve_channel(acc_ch_id)
             if channel:
-                await briefings_cog.compile_and_send_session_accuracy(channel, session_key="asia")
+                await briefings_cog.compile_and_send_weekly_accuracy(channel)
 
     async def dispatch_scheduled_calendar(self) -> None:
         """Executed automatically at 7:00 AM to dispatch Economic Calendar to designated channel."""

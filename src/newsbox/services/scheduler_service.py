@@ -253,6 +253,35 @@ class SchedulerService:
             self.settings.briefing_timezone,
         )
 
+    def schedule_weekly_accuracy(
+        self,
+        accuracy_job: Callable[[], Coroutine[Any, Any, None]],
+        day_of_week: str = "sat",
+        hour: int = 12,
+        minute: int = 0,
+    ) -> None:
+        """Register Saturday 12:00 PM Weekly Accuracy Summary Report."""
+        trigger = CronTrigger(
+            day_of_week=day_of_week,
+            hour=hour,
+            minute=minute,
+            timezone=self.settings.briefing_timezone,
+        )
+        self.scheduler.add_job(
+            accuracy_job,
+            trigger=trigger,
+            id="weekly_accuracy_report",
+            name=f"Saturday {hour:02d}:{minute:02d} Weekly Accuracy Report",
+            replace_existing=True,
+        )
+        logger.info(
+            "Scheduled Saturday Weekly Accuracy Report for %s %02d:%02d (%s)",
+            day_of_week.upper(),
+            hour,
+            minute,
+            self.settings.briefing_timezone,
+        )
+
     def start(self) -> None:
         """Start the scheduler background loop."""
         if not self._is_running:

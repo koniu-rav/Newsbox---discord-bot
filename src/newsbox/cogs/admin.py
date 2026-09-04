@@ -63,6 +63,8 @@ class AdminCog(commands.Cog, name="Admin"):
             f"• **Środowisko:** `{self.settings.environment}`\n"
             f"• **Model AI:** `{self.settings.gemini_model}`\n"
             f"• **Harmonogram Sesji:** Londyn `07:00` • Nowy Jork `13:30` • Azja `23:00` (CET)\n"
+            f"• **Harmonogram Accuracy:** Sobota `12:00` (CET) — 1 podsumowanie tygodniowe\n"
+            f"• **Harmonogram Portfela:** Niedziela `18:00` (raport) • Codziennie `14:00` (newsy)\n"
             f"• **Harmonogram Flash:** `:25` oraz `:55` w każdej godzinie\n"
             f"• **Status Flash News:** {flash_info}\n"
             f"• **Wymagana Rola VIP:** `{self.settings.vip_role_name}`\n\n"

@@ -883,6 +883,64 @@ def format_accuracy_message(
     return "\n\n".join(parts)
 
 
+def format_weekly_accuracy_message(
+    stats: Dict[str, Any],
+    week_evaluations: List[Dict[str, Any]],
+    conclusions: Optional[str] = None,
+) -> str:
+    """Format Saturday Comprehensive Weekly Accuracy Report as a clean full-width Discord markdown message."""
+    global_st = stats.get("global", {})
+    sessions_st = stats.get("sessions", {})
+    weekly_st = stats.get("weekly", {})
+
+    lon_st = sessions_st.get("london", {})
+    ny_st = sessions_st.get("newyork", {})
+    asia_st = sessions_st.get("asia", {})
+
+    week_label = weekly_st.get("week_number", "Bieżący")
+
+    parts = [
+        f"## 📊 Tygodniowy Raport Skuteczności AI • we.trade (Tydzień `{week_label}`)",
+        "Podsumowanie trafności prognoz, poziomów i sygnałów sesyjnych z minionego tygodnia handlowego.",
+        (
+            "### 🏆 1. Skuteczność w Minionym Tygodniu\n"
+            f"• **Win-Rate Tygodnia**: `{weekly_st.get('win_rate', 0.0)}%` (Średnia ocena: `{weekly_st.get('average_score', 0.0)}/100`)\n"
+            f"• **Bilans sesji**: `{weekly_st.get('successful', 0)}/{weekly_st.get('total', 0)}` udanych analiz "
+            f"(🎯 `{weekly_st.get('successful', 0)}` | ⚖️ `{weekly_st.get('neutral', 0)}` | ❌ `{weekly_st.get('failed', 0)}`)"
+        ),
+        (
+            "### 🎯 2. Skuteczność w Rozbiciu na Sesje\n"
+            f"• 🇬🇧 **Londyn**: Win-Rate `{lon_st.get('win_rate', 0.0)}%` (Śr: `{lon_st.get('average_score', 0.0)}/100` | `{lon_st.get('successful', 0)}/{lon_st.get('total', 0)}`)\n"
+            f"• 🇺🇸 **Nowy Jork**: Win-Rate `{ny_st.get('win_rate', 0.0)}%` (Śr: `{ny_st.get('average_score', 0.0)}/100` | `{ny_st.get('successful', 0)}/{ny_st.get('total', 0)}`)\n"
+            f"• 🇯🇵 **Azja**: Win-Rate `{asia_st.get('win_rate', 0.0)}%` (Śr: `{asia_st.get('average_score', 0.0)}/100` | `{asia_st.get('successful', 0)}/{asia_st.get('total', 0)}`)"
+        ),
+        (
+            "### 🌐 3. Wyniki Globalne (All-Time)\n"
+            f"• **Globalny Win-Rate**: `{global_st.get('win_rate', 0.0)}%` (Średnia: `{global_st.get('average_score', 0.0)}/100`)\n"
+            f"• **Łączna liczba ewaluacji**: `{global_st.get('total', 0)}` sesji"
+        ),
+    ]
+
+    if week_evaluations:
+        eval_lines = []
+        for e in week_evaluations[-7:]:
+            s_name = {"london": "🇬🇧 Londyn", "newyork": "🇺🇸 NY", "asia": "🇯🇵 Azja"}.get(e.get("session", ""), e.get("session", "").upper())
+            score = e.get("score", 0)
+            badge = "🎯" if score > 75 else ("⚖️" if score > 25 else "❌")
+            date_str = e.get("date", "")
+            raw_breakdown = clean_markdown_text(e.get("breakdown", "")).split("\n")[0] if e.get("breakdown") else "Zrealizowano"
+            eval_lines.append(f"• `{date_str}` **{s_name}**: {badge} `{score}/100` — {raw_breakdown}")
+        parts.append("### 📋 4. Przegląd Sesji Minionego Tygodnia\n" + "\n".join(eval_lines))
+
+    if conclusions:
+        parts.append(f"### 💡 Kluczowe Wnioski i Lekcje Tygodnia\n{clean_markdown_text(conclusions)}")
+    elif week_evaluations and week_evaluations[-1].get("conclusions"):
+        parts.append(f"### 💡 Kluczowe Wnioski i Lekcje Tygodnia\n{clean_markdown_text(week_evaluations[-1].get('conclusions', ''))}")
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
 def format_error_message(title: str, description: str) -> str:
     """Format error notification as a clean full-width Discord markdown message."""
     return f"### ⚠️ {title}\n{clean_markdown_text(description)}"
