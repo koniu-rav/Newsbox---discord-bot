@@ -828,12 +828,33 @@ def format_macro_alerts_batch_message(
     events: List[Dict[str, Any]],
     impacts: Optional[Dict[str, str]] = None,
 ) -> str:
-    """Format batch of real-time published economic events or speeches as a concise Discord markdown message."""
+    """Format batch of real-time published economic events or speeches as a padded pseudo-table."""
     if not events:
         return ""
 
     impacts = impacts or {}
-    title_header = "## ⚡ ODCZYTY MAKROEKONOMICZNE NA ŻYWO" if len(events) > 1 else "## ⚡ ODCZYT MAKROEKONOMICZNY NA ŻYWO"
+
+    def clean_rev(rev: str) -> str:
+        if not rev:
+            return ""
+        r = re.sub(r"(?i)previous\s+revised\s+from", "rew. z", rev).strip()
+        return r if r.startswith("rew.") else f"rew. {r}"
+
+    def get_act_visible(e: Dict[str, Any]) -> str:
+        b = f" {e['sentiment_badge']}" if e.get("sentiment_badge") in ["🟢", "🔴"] else ""
+        return f"Akt: {e.get('actual', 'Brak')}{b}"
+
+    def get_poprz_visible(e: Dict[str, Any]) -> str:
+        p = e.get("previous", "Brak")
+        r = clean_rev(e.get("revised", ""))
+        return f"{p} ({r})" if r else p
+
+    # Determine max lengths for vertical column alignment
+    max_title = max(len(e.get("title", "")) for e in events) if events else 0
+    data_events = [e for e in events if not e.get("is_speech")]
+    max_act = max(len(get_act_visible(e)) for e in data_events) if data_events else 0
+    max_prog = max(len(f"Progn: {e.get('forecast', 'Brak')}") for e in data_events) if data_events else 0
+    max_poprz = max(len(f"Poprz: {get_poprz_visible(e)}") for e in data_events) if data_events else 0
 
     event_lines = []
     for ev in events:
@@ -846,27 +867,27 @@ def format_macro_alerts_batch_message(
 
         comment = impacts.get(ev_id, "").strip()
 
+        col_time = f"• {impact} {time_str}"
+        col_curr = f"[{currency}]"
+        col_title = title.ljust(max_title)
+
         if is_speech:
             if not comment:
                 comment = ev.get("speech_note", "Wystąpienie rozpoczęte | uwaga na zmienność na rynku")
             comment_fmt = clean_markdown_text(comment).replace(" — ", " | ").replace(" - ", " | ")
-            event_lines.append(f"• {impact} {time_str} | [{currency}] | {title} | Wystąpienie rozpoczęte | {comment_fmt}")
+            event_lines.append(f"{col_time} | {col_curr} | {col_title} | Wystąpienie rozpoczęte | {comment_fmt}")
         else:
             actual = ev.get("actual", "Brak")
             forecast = ev.get("forecast", "Brak")
-            previous = ev.get("previous", "Brak")
-            revised = ev.get("revised", "")
             sentiment_badge = ev.get("sentiment_badge", "⚪")
 
             badge_str = f" {sentiment_badge}" if sentiment_badge in ["🟢", "🔴"] else ""
+            act_visible = get_act_visible(ev)
+            pad_act = " " * max(0, max_act - len(act_visible))
+            col_act = f"**Akt: {actual}**{badge_str}{pad_act}"
 
-            if revised:
-                rev_clean = re.sub(r"(?i)previous\s+revised\s+from", "rew. z", revised).strip()
-                if not rev_clean.startswith("rew."):
-                    rev_clean = f"rew. {rev_clean}"
-                prev_str = f"{previous} ({rev_clean})"
-            else:
-                prev_str = previous
+            col_prog = f"Progn: {forecast}".ljust(max_prog)
+            col_poprz = f"Poprz: {get_poprz_visible(ev)}".ljust(max_poprz)
 
             if not comment:
                 if sentiment_badge == "🟢":
@@ -879,13 +900,14 @@ def format_macro_alerts_batch_message(
             comment_fmt = clean_markdown_text(comment).replace(" — ", " | ")
 
             event_lines.append(
-                f"• {impact} {time_str} | [{currency}] | {title} | **Akt: {actual}**{badge_str} | Progn: {forecast} | Poprz: {prev_str} | {comment_fmt}"
+                f"{col_time} | {col_curr} | {col_title} | {col_act} | {col_prog} | {col_poprz} | {comment_fmt}"
             )
 
     body = "\n".join(event_lines)
     footer = f"-# {BRAND_FOOTER} • Live Macro Pulse"
 
-    return f"{title_header}\n\n{body}\n\n{footer}"
+    return f"{body}\n\n{footer}"
+
 
 
 def format_macro_alert_message(
