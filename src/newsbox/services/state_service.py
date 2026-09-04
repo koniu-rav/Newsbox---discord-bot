@@ -12,9 +12,21 @@ logger = setup_logger(__name__)
 
 DEFAULT_STATE_FILE = Path("data/state.json")
 
+DEFAULT_SCHEDULES: Dict[str, Dict[str, Any]] = {
+    "weekly_outlook": {"day_of_week": "sun", "hour": 10, "minute": 0},
+    "calendar": {"day_of_week": "mon-fri", "hour": 7, "minute": 0},
+    "london": {"day_of_week": "mon-fri", "hour": 7, "minute": 0},
+    "newyork": {"day_of_week": "mon-fri", "hour": 13, "minute": 30},
+    "asia": {"day_of_week": "sun,mon-thu", "hour": 23, "minute": 0},
+    "accuracy": {"day_of_week": "sat", "hour": 12, "minute": 0},
+    "portfolio": {"day_of_week": "sun", "hour": 18, "minute": 0},
+    "portfolio_news": {"day_of_week": "*", "hour": 14, "minute": 0},
+    "flash_news": {"minute_cron": "25,55"},
+}
+
 
 class StateManager:
-    """Manages persistent JSON storage for runtime changes (channels, portfolio watchlist)."""
+    """Manages persistent JSON storage for runtime changes (channels, portfolio watchlist, schedules)."""
 
     def __init__(self, state_file: Path | str = DEFAULT_STATE_FILE) -> None:
         self.state_file = Path(state_file)
@@ -22,6 +34,7 @@ class StateManager:
         self._state: Dict[str, Any] = {
             "channels": {},
             "portfolio_tickers": [],
+            "schedules": {},
         }
         self.load_state()
 
@@ -32,6 +45,18 @@ class StateManager:
                 data = json.loads(self.state_file.read_text(encoding="utf-8"))
                 self._state["channels"] = data.get("channels", {})
                 self._state["portfolio_tickers"] = data.get("portfolio_tickers", [])
+                self._state["schedules"] = data.get("schedules", {})
+
+                # Merge default schedules if any are missing
+                modified = False
+                for k, v in DEFAULT_SCHEDULES.items():
+                    if k not in self._state["schedules"]:
+                        self._state["schedules"][k] = dict(v)
+                        modified = True
+
+                if modified:
+                    self.save_state()
+
                 logger.info("Loaded persistent state from %s", self.state_file)
                 return
             except Exception as e:
@@ -49,6 +74,7 @@ class StateManager:
             "accuracy": self.settings.discord_accuracy_channel_id,
         }
         self._state["portfolio_tickers"] = list(self.settings.portfolio_tickers)
+        self._state["schedules"] = {k: dict(v) for k, v in DEFAULT_SCHEDULES.items()}
         self.save_state()
 
     def save_state(self) -> None:
@@ -97,6 +123,33 @@ class StateManager:
     def get_all_channels(self) -> Dict[str, Optional[int]]:
         """Return copy of all mapped channels."""
         return dict(self._state.get("channels", {}))
+
+    # ---------------- Schedule Management ---------------- #
+
+    def get_schedule(self, schedule_type: str) -> Dict[str, Any]:
+        """Get schedule configuration for a given job type."""
+        s_type = schedule_type.lower().strip()
+        schedules = self._state.get("schedules", {})
+        if s_type in schedules:
+            return dict(schedules[s_type])
+        return dict(DEFAULT_SCHEDULES.get(s_type, {}))
+
+    def set_schedule(self, schedule_type: str, schedule_data: Dict[str, Any]) -> None:
+        """Assign and save schedule parameters for a specific job."""
+        s_type = schedule_type.lower().strip()
+        if "schedules" not in self._state:
+            self._state["schedules"] = {}
+        self._state["schedules"][s_type] = dict(schedule_data)
+        self.save_state()
+        logger.info("Schedule updated & persisted: %s -> %s", s_type, schedule_data)
+
+    def get_all_schedules(self) -> Dict[str, Dict[str, Any]]:
+        """Return all persisted schedules with defaults filled in."""
+        current = dict(self._state.get("schedules", {}))
+        for k, v in DEFAULT_SCHEDULES.items():
+            if k not in current:
+                current[k] = dict(v)
+        return current
 
     # ---------------- Portfolio Management ---------------- #
 

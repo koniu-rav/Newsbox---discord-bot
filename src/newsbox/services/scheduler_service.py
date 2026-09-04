@@ -7,6 +7,7 @@
 - Every 30 min (:00, :30): Global Flash News
 """
 
+from datetime import datetime
 from typing import Callable, Coroutine, Any, Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -281,6 +282,48 @@ class SchedulerService:
             minute,
             self.settings.briefing_timezone,
         )
+
+    def reschedule_cron_job(
+        self,
+        job_id: str,
+        day_of_week: Optional[str] = None,
+        hour: Optional[int] = None,
+        minute: Optional[int] = None,
+        minute_cron: Optional[str] = None,
+    ) -> bool:
+        """Dynamically update an existing job's schedule in APScheduler."""
+        try:
+            job = self.scheduler.get_job(job_id)
+            if not job:
+                logger.warning("Job %s not found in scheduler to reschedule", job_id)
+                return False
+
+            if minute_cron is not None:
+                trigger = CronTrigger(
+                    minute=minute_cron,
+                    timezone=self.settings.briefing_timezone,
+                )
+            else:
+                trigger = CronTrigger(
+                    day_of_week=day_of_week if day_of_week else "*",
+                    hour=hour if hour is not None else 0,
+                    minute=minute if minute is not None else 0,
+                    timezone=self.settings.briefing_timezone,
+                )
+            job.reschedule(trigger=trigger)
+            logger.info("Rescheduled job %s with trigger %s (next: %s)", job_id, trigger, job.next_run_time)
+            return True
+        except Exception as e:
+            logger.error("Failed to reschedule job %s: %s", job_id, e)
+            return False
+
+    def get_job_next_run(self, job_id: str) -> Optional[datetime]:
+        """Return next run datetime for a scheduled job or None."""
+        try:
+            job = self.scheduler.get_job(job_id)
+            return job.next_run_time if job else None
+        except Exception:
+            return None
 
     def start(self) -> None:
         """Start the scheduler background loop."""

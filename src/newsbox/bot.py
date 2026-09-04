@@ -17,6 +17,7 @@ COGS = [
     "newsbox.cogs.news",
     "newsbox.cogs.portfolio",
     "newsbox.cogs.channels",
+    "newsbox.cogs.schedules",
     "newsbox.cogs.admin",
 ]
 
@@ -77,41 +78,97 @@ class NewsboxBot(commands.Bot):
             except Exception as e:
                 logger.error("Failed to load extension %s: %s", extension, e, exc_info=True)
 
-        # 1. Schedule Sunday 10:00 AM Weekly Strategic Outlook
-        self.scheduler.schedule_weekly_outlook(self.dispatch_scheduled_weekly_outlook, day_of_week="sun", hour=10, minute=0)
+        # Load persisted schedules from state_manager
+        sched = self.state_manager.get_all_schedules()
 
-        # 2. Schedule Mon-Fri 07:00 AM Economic Calendar & London Session Briefing (1h before pre-market)
-        self.scheduler.schedule_daily_calendar(self.dispatch_scheduled_calendar)
-        self.scheduler.schedule_session_briefing("london", self.dispatch_scheduled_london_briefing, hour=7, minute=0)
+        # 1. Schedule Weekly Strategic Outlook
+        wo = sched.get("weekly_outlook", {"day_of_week": "sun", "hour": 10, "minute": 0})
+        self.scheduler.schedule_weekly_outlook(
+            self.dispatch_scheduled_weekly_outlook,
+            day_of_week=wo.get("day_of_week", "sun"),
+            hour=wo.get("hour", 10),
+            minute=wo.get("minute", 0),
+        )
 
-        # 3. Schedule Mon-Fri 13:30 PM New York Session Briefing (1h before pre-market/data)
-        self.scheduler.schedule_session_briefing("newyork", self.dispatch_scheduled_ny_briefing, hour=13, minute=30)
+        # 2. Schedule Daily Economic Calendar
+        cal = sched.get("calendar", {"day_of_week": "mon-fri", "hour": 7, "minute": 0})
+        self.scheduler.schedule_daily_calendar(
+            self.dispatch_scheduled_calendar,
+            time_str=f"{cal.get('hour', 7):02d}:{cal.get('minute', 0):02d}",
+        )
 
-        # 4. Schedule Mon-Fri 23:00 PM Asia Session Briefing (1h before pre-market)
-        self.scheduler.schedule_session_briefing("asia", self.dispatch_scheduled_asia_briefing, hour=23, minute=0)
+        # 3. Schedule 3-Tier Multi-Session Trader Advisory Briefings
+        lon = sched.get("london", {"day_of_week": "mon-fri", "hour": 7, "minute": 0})
+        self.scheduler.schedule_session_briefing(
+            "london",
+            self.dispatch_scheduled_london_briefing,
+            hour=lon.get("hour", 7),
+            minute=lon.get("minute", 0),
+            day_of_week=lon.get("day_of_week", "mon-fri"),
+        )
 
-        # 5. Quiet Background Session Accuracy Evaluations (records performance without Discord chat spam)
+        ny = sched.get("newyork", {"day_of_week": "mon-fri", "hour": 13, "minute": 30})
+        self.scheduler.schedule_session_briefing(
+            "newyork",
+            self.dispatch_scheduled_ny_briefing,
+            hour=ny.get("hour", 13),
+            minute=ny.get("minute", 30),
+            day_of_week=ny.get("day_of_week", "mon-fri"),
+        )
+
+        asia = sched.get("asia", {"day_of_week": "sun-thu", "hour": 23, "minute": 0})
+        self.scheduler.schedule_session_briefing(
+            "asia",
+            self.dispatch_scheduled_asia_briefing,
+            hour=asia.get("hour", 23),
+            minute=asia.get("minute", 0),
+            day_of_week=asia.get("day_of_week", "sun-thu"),
+        )
+
+        # 4. Quiet Background Session Accuracy Evaluations
         self.scheduler.schedule_session_evaluation("london", self.dispatch_scheduled_london_eval, hour=17, minute=30)
         self.scheduler.schedule_session_evaluation("newyork", self.dispatch_scheduled_ny_eval, hour=22, minute=0)
         self.scheduler.schedule_session_evaluation("asia", self.dispatch_scheduled_asia_eval, hour=7, minute=0)
 
-        # 6. Schedule Saturday 12:00 PM Weekly Accuracy Report (single weekly status)
-        self.scheduler.schedule_weekly_accuracy(self.dispatch_scheduled_weekly_accuracy, day_of_week="sat", hour=12, minute=0)
+        # 5. Schedule Weekly Accuracy Report
+        acc = sched.get("accuracy", {"day_of_week": "sat", "hour": 12, "minute": 0})
+        self.scheduler.schedule_weekly_accuracy(
+            self.dispatch_scheduled_weekly_accuracy,
+            day_of_week=acc.get("day_of_week", "sat"),
+            hour=acc.get("hour", 12),
+            minute=acc.get("minute", 0),
+        )
 
-        # 7. Schedule Periodic Global Flash News (:25 and :55)
-        self.scheduler.schedule_periodic_flash_news(self.dispatch_scheduled_flash_news, minute_cron="25,55")
+        # 6. Schedule Periodic Global Flash News
+        flash = sched.get("flash_news", {"minute_cron": "25,55"})
+        self.scheduler.schedule_periodic_flash_news(
+            self.dispatch_scheduled_flash_news,
+            minute_cron=flash.get("minute_cron", "25,55"),
+        )
 
-        # 8. Schedule Weekly Portfolio Report (Sunday 18:00 CET)
-        self.scheduler.schedule_weekly_portfolio(self.dispatch_scheduled_weekly_portfolio, day_of_week="sun", hour=18, minute=0)
+        # 7. Schedule Weekly Portfolio Report
+        port = sched.get("portfolio", {"day_of_week": "sun", "hour": 18, "minute": 0})
+        self.scheduler.schedule_weekly_portfolio(
+            self.dispatch_scheduled_weekly_portfolio,
+            day_of_week=port.get("day_of_week", "sun"),
+            hour=port.get("hour", 18),
+            minute=port.get("minute", 0),
+        )
 
-        # 9. Schedule Daily Portfolio News at 14:00 CET (channel 1544262150455955516)
-        self.scheduler.schedule_daily_portfolio_news(self.dispatch_scheduled_daily_portfolio_news, hour=14, minute=0)
+        # 8. Schedule Daily Portfolio News
+        pnews = sched.get("portfolio_news", {"day_of_week": "*", "hour": 14, "minute": 0})
+        self.scheduler.schedule_daily_portfolio_news(
+            self.dispatch_scheduled_daily_portfolio_news,
+            day_of_week=pnews.get("day_of_week", "*"),
+            hour=pnews.get("hour", 14),
+            minute=pnews.get("minute", 0),
+        )
 
         self.scheduler.start()
 
+
     async def on_ready(self) -> None:
         """Event triggered when Discord gateway connection is established."""
-        logger.info("Connected to Discord as %s (ID: %s) • we.trade", self.user.name, self.user.id)
         activity = discord.Activity(
             type=discord.ActivityType.watching,
             name="we.trade • Społeczność Traderów | !briefing",
@@ -191,14 +248,10 @@ class NewsboxBot(commands.Bot):
         """Executed automatically on Saturday at 12:00 PM to dispatch the single Weekly Accuracy Report."""
         logger.info("Triggering scheduled Saturday 12:00 PM Weekly Accuracy Report dispatch...")
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
-        if not briefings_cog:
-            return
 
         acc_ch_id = (
             self.state_manager.get_channel("accuracy")
             or self.settings.discord_accuracy_channel_id
-            or self.state_manager.get_channel("macro")
-            or self.settings.macro_channel_id
         )
         if acc_ch_id:
             channel = await self._resolve_channel(acc_ch_id)
@@ -206,8 +259,8 @@ class NewsboxBot(commands.Bot):
                 await briefings_cog.compile_and_send_weekly_accuracy(channel)
 
     async def dispatch_scheduled_calendar(self) -> None:
-        """Executed automatically at 7:00 AM to dispatch Economic Calendar to designated channel."""
-        logger.info("Triggering scheduled 7:00 AM economic calendar dispatch...")
+        """Executed automatically to dispatch Economic Calendar to designated channel."""
+        logger.info("Triggering scheduled economic calendar dispatch...")
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
         if not briefings_cog:
             return
@@ -218,15 +271,14 @@ class NewsboxBot(commands.Bot):
             or self.state_manager.get_channel("macro")
             or self.settings.macro_channel_id
         )
-
         if cal_ch_id:
             channel = await self._resolve_channel(cal_ch_id)
             if channel:
                 await briefings_cog.compile_and_send_calendar_briefing(channel)
 
     async def dispatch_scheduled_flash_news(self) -> None:
-        """Executed automatically every 30 minutes to dispatch 2-3 sentence global flash news to channel 1544598484961722409."""
-        logger.info("Triggering periodic 30-minute global flash news dispatch...")
+        """Executed automatically to dispatch 2-3 sentence global flash news."""
+        logger.info("Triggering periodic global flash news dispatch...")
         news_cog = self.get_cog("News Feed")
         if not news_cog:
             return
@@ -236,12 +288,10 @@ class NewsboxBot(commands.Bot):
             or self.settings.discord_news_global_channel_id
             or 1544598484961722409
         )
-
         if flash_ch_id:
             channel = await self._resolve_channel(flash_ch_id)
             if channel:
                 await news_cog.compile_and_send_flash_news(channel)
-
     async def dispatch_scheduled_weekly_portfolio(self) -> None:
         """Executed weekly (Sunday 18:00 CET) to dispatch portfolio summary report."""
         logger.info("Triggering scheduled weekly portfolio report dispatch...")
@@ -275,6 +325,40 @@ class NewsboxBot(commands.Bot):
             channel = await self._resolve_channel(news_ch_id)
             if channel:
                 await portfolio_cog.compile_and_send_portfolio_news(channel)
+
+    def reschedule_job(self, schedule_key: str) -> bool:
+        """Dynamically reschedule an existing job from persistent state."""
+        key_to_job_id = {
+            "weekly_outlook": "weekly_strategic_outlook",
+            "calendar": "daily_economic_calendar",
+            "london": "session_briefing_london",
+            "newyork": "session_briefing_newyork",
+            "asia": "session_briefing_asia",
+            "accuracy": "weekly_accuracy_report",
+            "portfolio": "weekly_portfolio_report",
+            "portfolio_news": "daily_portfolio_news",
+            "flash_news": "periodic_flash_news",
+        }
+        job_id = key_to_job_id.get(schedule_key.lower().strip())
+        if not job_id:
+            return False
+
+        config = self.state_manager.get_schedule(schedule_key)
+        if not config:
+            return False
+
+        if schedule_key.lower().strip() == "flash_news":
+            return self.scheduler.reschedule_cron_job(
+                job_id=job_id,
+                minute_cron=config.get("minute_cron", "25,55"),
+            )
+        else:
+            return self.scheduler.reschedule_cron_job(
+                job_id=job_id,
+                day_of_week=config.get("day_of_week", "*"),
+                hour=config.get("hour", 12),
+                minute=config.get("minute", 0),
+            )
 
     async def _resolve_channel(self, channel_id: int) -> Optional[discord.abc.Messageable]:
         """Fetch or get channel by ID."""
