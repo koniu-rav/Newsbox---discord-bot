@@ -349,7 +349,10 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
     async def compile_and_send_calendar_briefing(self, channel: discord.abc.Messageable) -> None:
         """Fetch economic calendar, generate AI risk assessment, and send full-width Discord message."""
         try:
-            date_str = datetime.now(WARSAW_TZ).strftime("%A, %d.%m.%Y")
+            now = datetime.now(WARSAW_TZ)
+            polish_days = ["Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota", "Niedziela"]
+            day_pl = polish_days[now.weekday()]
+            date_str = f"{day_pl} {now.strftime('%d.%m.%Y')}"
             calendar_events = await self.calendar_service.fetch_todays_events(start_hour=7)
             calendar_advice = await self.gemini_service.generate_calendar_advisory(calendar_events)
 

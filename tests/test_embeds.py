@@ -223,9 +223,11 @@ def test_format_calendar_message():
         {"time": "08:00", "currency": "GBP", "title": "PKB Wielkiej Brytanii", "impact": "🔴"},
     ]
     advice = "Uwaga na podwyższoną zmienność na funcie."
-    msg = format_calendar_message(date_str="Czwartek, 03.09.2026", calendar_events=events, calendar_advice=advice)
+    msg = format_calendar_message(date_str="Friday, 04.09.2026", calendar_events=events, calendar_advice=advice)
 
-    assert "## 📅 24-godzinny Kalendarz Makro" in msg
+    assert "## 📅 Kalendarz Makro (07:00 ➡️ 06:59) — Piątek 04.09.2026" in msg
+    assert "24-godzinny" not in msg
+    assert "Publikacje Dnia & Nocy" not in msg
     assert "🔴 `08:00` **[GBP]** PKB Wielkiej Brytanii" in msg
     assert "### 💡 Zalecenia AI dla Tradera" in msg
     assert "Uwaga na podwyższoną zmienność" in msg

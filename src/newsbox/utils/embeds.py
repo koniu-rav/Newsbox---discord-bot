@@ -236,9 +236,18 @@ def create_calendar_embed(
     calendar_events: List[Dict[str, Any]],
     calendar_advice: Optional[str] = None,
 ) -> discord.Embed:
-    """Build the Economic Calendar & Risk Assessment embed (24h window: 07:00 today to 07:00 tomorrow)."""
+    """Build the Economic Calendar & Risk Assessment embed."""
+    day_map = {
+        "Monday": "Poniedziałek", "Tuesday": "Wtorek", "Wednesday": "Środa",
+        "Thursday": "Czwartek", "Friday": "Piątek", "Saturday": "Sobota", "Sunday": "Niedziela",
+    }
+    clean_date_str = date_str
+    for en_day, pl_day in day_map.items():
+        if en_day in clean_date_str:
+            clean_date_str = clean_date_str.replace(f"{en_day}, ", f"{pl_day} ").replace(en_day, pl_day)
+
     embed = discord.Embed(
-        title=f"📅 24-godzinny Kalendarz Makro (07:00 ➡️ 07:00) — {date_str}",
+        title=f"📅 Kalendarz Makro (07:00 ➡️ 06:59) — {clean_date_str}",
         color=0xE67E22,  # Orange
         timestamp=datetime.utcnow(),
     )
@@ -715,7 +724,16 @@ def format_calendar_message(
     calendar_advice: Optional[str] = None,
 ) -> str:
     """Format 24-hour Economic Calendar as a clean full-width Discord markdown message."""
-    parts = [f"## 📅 24-godzinny Kalendarz Makro (07:00 ➡️ 07:00) — {date_str}"]
+    day_map = {
+        "Monday": "Poniedziałek", "Tuesday": "Wtorek", "Wednesday": "Środa",
+        "Thursday": "Czwartek", "Friday": "Piątek", "Saturday": "Sobota", "Sunday": "Niedziela",
+    }
+    clean_date_str = date_str
+    for en_day, pl_day in day_map.items():
+        if en_day in clean_date_str:
+            clean_date_str = clean_date_str.replace(f"{en_day}, ", f"{pl_day} ").replace(en_day, pl_day)
+
+    parts = [f"## 📅 Kalendarz Makro (07:00 ➡️ 06:59) — {clean_date_str}"]
 
     event_lines = []
     for event in calendar_events[:15]:
@@ -726,9 +744,9 @@ def format_calendar_message(
         event_lines.append(f"• {impact} `{time}` **[{currency}]** {title}")
 
     if event_lines:
-        parts.append("### ⏰ Publikacje Dnia & Nocy (07:00 Dzisiaj ➡️ 07:00 Jutro)\n" + "\n".join(event_lines))
+        parts.append("\n".join(event_lines))
     else:
-        parts.append("### ⏰ Publikacje Dnia & Nocy\n*Brak istotnych publikacji w tym oknie czasowym.*")
+        parts.append("*Brak istotnych publikacji w tym oknie czasowym.*")
 
     if calendar_advice:
         parts.append(f"### 💡 Zalecenia AI dla Tradera (Londyn • Nowy Jork • Azja)\n{clean_markdown_text(calendar_advice)}")
