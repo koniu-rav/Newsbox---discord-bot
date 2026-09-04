@@ -172,9 +172,14 @@ class NewsboxBot(commands.Bot):
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
         if not briefings_cog:
             return
-        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
-        if macro_ch_id:
-            channel = await self._resolve_channel(macro_ch_id)
+        acc_ch_id = (
+            self.state_manager.get_channel("accuracy")
+            or self.settings.discord_accuracy_channel_id
+            or self.state_manager.get_channel("macro")
+            or self.settings.macro_channel_id
+        )
+        if acc_ch_id:
+            channel = await self._resolve_channel(acc_ch_id)
             if channel:
                 await briefings_cog.compile_and_send_session_accuracy(channel, session_key="london")
 
@@ -184,9 +189,14 @@ class NewsboxBot(commands.Bot):
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
         if not briefings_cog:
             return
-        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
-        if macro_ch_id:
-            channel = await self._resolve_channel(macro_ch_id)
+        acc_ch_id = (
+            self.state_manager.get_channel("accuracy")
+            or self.settings.discord_accuracy_channel_id
+            or self.state_manager.get_channel("macro")
+            or self.settings.macro_channel_id
+        )
+        if acc_ch_id:
+            channel = await self._resolve_channel(acc_ch_id)
             if channel:
                 await briefings_cog.compile_and_send_session_accuracy(channel, session_key="newyork")
 
@@ -196,9 +206,14 @@ class NewsboxBot(commands.Bot):
         briefings_cog = self.get_cog("Briefings & Trader Advisory")
         if not briefings_cog:
             return
-        macro_ch_id = self.state_manager.get_channel("macro") or self.settings.macro_channel_id
-        if macro_ch_id:
-            channel = await self._resolve_channel(macro_ch_id)
+        acc_ch_id = (
+            self.state_manager.get_channel("accuracy")
+            or self.settings.discord_accuracy_channel_id
+            or self.state_manager.get_channel("macro")
+            or self.settings.macro_channel_id
+        )
+        if acc_ch_id:
+            channel = await self._resolve_channel(acc_ch_id)
             if channel:
                 await briefings_cog.compile_and_send_session_accuracy(channel, session_key="asia")
 

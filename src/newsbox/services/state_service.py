@@ -46,6 +46,7 @@ class StateManager:
             "crypto": self.settings.discord_crypto_channel_id,
             "portfolio": self.settings.discord_portfolio_channel_id,
             "portfolio_news": self.settings.discord_portfolio_news_channel_id,
+            "accuracy": self.settings.discord_accuracy_channel_id,
         }
         self._state["portfolio_tickers"] = list(self.settings.portfolio_tickers)
         self.save_state()
@@ -84,6 +85,8 @@ class StateManager:
             self.settings.discord_portfolio_channel_id = channel_id
         elif c_type in ["portfolio_news", "portfel_news"]:
             self.settings.discord_portfolio_news_channel_id = channel_id
+        elif c_type in ["accuracy", "skutecznosc", "stats", "wyniki"]:
+            self.settings.discord_accuracy_channel_id = channel_id
 
         self.save_state()
 

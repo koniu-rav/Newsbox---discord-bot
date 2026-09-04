@@ -73,11 +73,15 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             "spolki": "💼 Alerty & Podgląd Portfela",
             "portfolio_news": "📰 Wiadomości i Komunikaty Spółek z Portfela",
             "portfel_news": "📰 Wiadomości i Komunikaty Spółek z Portfela",
+            "accuracy": "🎯 Raporty Skuteczności & Ewaluacje Sesji",
+            "skutecznosc": "🎯 Raporty Skuteczności & Ewaluacje Sesji",
+            "stats": "🎯 Raporty Skuteczności & Ewaluacje Sesji",
+            "wyniki": "🎯 Raporty Skuteczności & Ewaluacje Sesji",
         }
 
         if c_type not in type_descriptions:
             await ctx.send(
-                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `news_pl`, `news_global` / `flash`, `crypto`, `portfolio`, `portfolio_news`."
+                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `accuracy`, `news_pl`, `news_global` / `flash`, `crypto`, `portfolio`, `portfolio_news`."
             )
             return
 
@@ -95,6 +99,8 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             canonical_key = "portfolio"
         elif c_type in ["portfolio_news", "portfel_news"]:
             canonical_key = "portfolio_news"
+        elif c_type in ["accuracy", "skutecznosc", "stats", "wyniki"]:
+            canonical_key = "accuracy"
 
         self.state_manager.set_channel(canonical_key, target.id)
         desc = type_descriptions[c_type]
@@ -114,6 +120,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             "## 📡 Konfiguracja Kanałów Powiadomień (Trwały Zapis)",
             f"• **🌅 Raporty Makro & Sesyjne:** {ch_mention(channels.get('macro') or self.settings.macro_channel_id)}",
             f"• **📅 Kalendarz Ekonomiczny 24h:** {ch_mention(channels.get('calendar'))}",
+            f"• **🎯 Raporty Skuteczności & Stats:** {ch_mention(channels.get('accuracy') or self.settings.discord_accuracy_channel_id)}",
             f"• **⚡ Flash News Ze Świata (Auto :25, :55):** {ch_mention(channels.get('news_global') or self.settings.discord_news_global_channel_id or 1544598484961722409)}",
             f"• **🇵🇱 Newsy Polska / GPW:** {ch_mention(channels.get('news_pl'))}",
             f"• **🌐 Newsy Globalne & USA:** {ch_mention(channels.get('news_global'))}",

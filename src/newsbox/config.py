@@ -75,6 +75,7 @@ try:
         discord_crypto_channel_id: Optional[int] = Field(default=None, alias="DISCORD_CRYPTO_CHANNEL_ID")
         discord_portfolio_channel_id: Optional[int] = Field(default=None, alias="DISCORD_PORTFOLIO_CHANNEL_ID")
         discord_portfolio_news_channel_id: Optional[int] = Field(default=None, alias="DISCORD_PORTFOLIO_NEWS_CHANNEL_ID")
+        discord_accuracy_channel_id: Optional[int] = Field(default=None, alias="DISCORD_ACCURACY_CHANNEL_ID")
 
         # Backward compatibility alias
         discord_briefing_channel_id: Optional[int] = Field(default=None, alias="DISCORD_BRIEFING_CHANNEL_ID")
@@ -88,6 +89,7 @@ try:
             "discord_crypto_channel_id",
             "discord_portfolio_channel_id",
             "discord_portfolio_news_channel_id",
+            "discord_accuracy_channel_id",
             "discord_briefing_channel_id",
             mode="before",
         )
