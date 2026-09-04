@@ -180,9 +180,9 @@ class SchedulerService:
     def schedule_periodic_flash_news(
         self,
         flash_news_job: Callable[[], Coroutine[Any, Any, None]],
-        minute_cron: str = "25,55",
+        minute_cron: str = "5,35",
     ) -> None:
-        """Register periodic global flash news job (every :25 and :55 past the hour)."""
+        """Register periodic global flash news job (every :05 and :35 past the hour)."""
         trigger = CronTrigger(
             minute=minute_cron,
             timezone=self.settings.briefing_timezone,
@@ -192,10 +192,10 @@ class SchedulerService:
             flash_news_job,
             trigger=trigger,
             id="periodic_flash_news",
-            name="Global Flash News (:25 and :55)",
+            name="Global Flash News (:05 and :35)",
             replace_existing=True,
         )
-        logger.info("Scheduled Global Flash News at :25 and :55 (%s)", self.settings.briefing_timezone)
+        logger.info("Scheduled Global Flash News at :05 and :35 (%s)", self.settings.briefing_timezone)
 
     def schedule_weekly_portfolio(
         self,

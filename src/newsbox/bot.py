@@ -140,10 +140,10 @@ class NewsboxBot(commands.Bot):
         )
 
         # 6. Schedule Periodic Global Flash News
-        flash = sched.get("flash_news", {"minute_cron": "25,55"})
+        flash = sched.get("flash_news", {"minute_cron": "5,35"})
         self.scheduler.schedule_periodic_flash_news(
             self.dispatch_scheduled_flash_news,
-            minute_cron=flash.get("minute_cron", "25,55"),
+            minute_cron=flash.get("minute_cron", "5,35"),
         )
 
         # 7. Schedule Weekly Portfolio Report
@@ -378,7 +378,7 @@ class NewsboxBot(commands.Bot):
         if schedule_key.lower().strip() == "flash_news":
             return self.scheduler.reschedule_cron_job(
                 job_id=job_id,
-                minute_cron=config.get("minute_cron", "25,55"),
+                minute_cron=config.get("minute_cron", "5,35"),
             )
         else:
             return self.scheduler.reschedule_cron_job(

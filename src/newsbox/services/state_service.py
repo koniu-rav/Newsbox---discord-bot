@@ -21,7 +21,7 @@ DEFAULT_SCHEDULES: Dict[str, Dict[str, Any]] = {
     "accuracy": {"day_of_week": "sat", "hour": 12, "minute": 0},
     "portfolio": {"day_of_week": "sun", "hour": 18, "minute": 0},
     "portfolio_news": {"day_of_week": "*", "hour": 14, "minute": 0},
-    "flash_news": {"minute_cron": "25,55"},
+    "flash_news": {"minute_cron": "5,35"},
 }
 
 
@@ -54,6 +54,11 @@ class StateManager:
                     if k not in self._state["schedules"]:
                         self._state["schedules"][k] = dict(v)
                         modified = True
+
+                # Migrate legacy flash_news schedule (25,55 -> 5,35)
+                if self._state["schedules"].get("flash_news", {}).get("minute_cron") == "25,55":
+                    self._state["schedules"]["flash_news"]["minute_cron"] = "5,35"
+                    modified = True
 
                 if "macro_alerts" not in self._state["channels"]:
                     self._state["channels"]["macro_alerts"] = self.settings.discord_macro_alerts_channel_id

@@ -34,7 +34,7 @@ class AdminCog(commands.Cog, name="Admin"):
             "### 💎 Główne Moduły i Komendy\n"
             "• `!briefing` — Raport makro dla nadchodzącej sesji (`!london`, `!ny`, `!asia`)\n"
             "• `!weekly` — Niedzielny horyzont strategiczny na cały tydzień (10:00)\n"
-            "• `!flash` — Flash News ze świata i doniesienia rynkowe na żywo (:25, :55)\n"
+            "• `!flash` — Flash News ze świata i doniesienia rynkowe na żywo (:05, :35)\n"
             "• `!calendar` — 24-godzinny kalendarz ekonomiczny z oceną ryzyk AI\n"
             "• `!accuracy` — Wielopoziomowy ranking skuteczności analiz AI\n"
             "• `!portfolio` — Monitoring i wiadomości spółek z Twojego portfela\n"
@@ -54,7 +54,7 @@ class AdminCog(commands.Cog, name="Admin"):
             audit = news_cog.last_flash_audit
             flash_info = f"`{audit.get('time', '')}` • {audit.get('action', '')}"
         else:
-            flash_info = "Oczekuje na pierwszy cykl (:25, :55)"
+            flash_info = "Oczekuje na pierwszy cykl (:05, :35)"
 
         msg = (
             "## 🤖 Newsbox Bot Status • we.trade\n"
@@ -65,7 +65,7 @@ class AdminCog(commands.Cog, name="Admin"):
             f"• **Harmonogram Sesji:** Londyn `07:00` • Nowy Jork `13:30` • Azja `23:00` (CET)\n"
             f"• **Harmonogram Accuracy:** Sobota `12:00` (CET) — 1 podsumowanie tygodniowe\n"
             f"• **Harmonogram Portfela:** Niedziela `18:00` (raport) • Codziennie `14:00` (newsy)\n"
-            f"• **Harmonogram Flash:** `:25` oraz `:55` w każdej godzinie\n"
+            f"• **Harmonogram Flash:** `:05` oraz `:35` w każdej godzinie\n"
             f"• **Status Flash News:** {flash_info}\n"
             f"• **Wymagana Rola VIP:** `{self.settings.vip_role_name}`\n\n"
             f"### 📈 Śledzone Aktywa Bazowe\n{tickers_str or 'Brak'}\n\n"

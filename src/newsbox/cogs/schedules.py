@@ -160,7 +160,7 @@ class SchedulesCog(commands.Cog, name="Schedule Management"):
             raw_cron = " ".join(args).replace(":", "").replace(" ", "").strip()
             if re.match(r"^[\d,\*/]+$", raw_cron):
                 return None, None, None, None
-            return None, None, None, "Niepoprawny format minut dla Flash News. Użyj np. `25,55` lub `15,45`."
+            return None, None, None, "Niepoprawny format minut dla Flash News. Użyj np. `5,35` lub `15,45`."
 
         # Case 2: Time-based schedules
         text = " ".join(args).lower().strip()
@@ -221,12 +221,12 @@ class SchedulesCog(commands.Cog, name="Schedule Management"):
         - `accuracy` (lub `skutecznosc`): Tygodniowy raport skuteczności (np. `!set_schedule accuracy sobota 12:00`)
         - `portfolio` (lub `portfel`): Tygodniowy raport portfela (np. `!set_schedule portfolio sun 18:00`)
         - `portfolio_news` (lub `portfel_news`): Wiadomości spółek (np. `!set_schedule portfolio_news 14:00`)
-        - `flash_news` (lub `flash`): Cykl minutowy newsów flash (np. `!set_schedule flash 25,55`)
+        - `flash_news` (lub `flash`): Cykl minutowy newsów flash (np. `!set_schedule flash 5,35`)
 
         Przykłady:
         `!set_schedule accuracy sobota 12:00`
         `!set_schedule portfolio_news 15:30`
-        `!set_schedule flash 15,45`
+        `!set_schedule flash 5,35`
         """
         canonical_key = self._resolve_canonical_key(job_type)
         if not canonical_key:
@@ -239,7 +239,7 @@ class SchedulesCog(commands.Cog, name="Schedule Management"):
         if JOB_DEFINITIONS[canonical_key].get("is_cron"):
             raw_cron = " ".join(args).replace(":", "").replace(" ", "").strip()
             if not raw_cron or not re.match(r"^[\d,\*/]+$", raw_cron):
-                await ctx.send("❌ Dla Flash News podaj minuty po przecinku, np. `!set_schedule flash 25,55` lub `15,45`.")
+                await ctx.send("❌ Dla Flash News podaj minuty po przecinku, np. `!set_schedule flash 5,35` lub `15,45`.")
                 return
 
             new_cfg = {"minute_cron": raw_cron}

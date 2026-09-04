@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # Default assets mapping
 DEFAULT_TICKERS_STR = "DXY=DX-Y.NYB,EUR/USD=EURUSD=X,DAX=^GDAXI,BTC=BTC-USD,GBP/USD=GBPUSD=X,USD/JPY=USDJPY=X"
 DEFAULT_PORTFOLIO_STR = "CDR.WA,PKN.WA,NVDA,TSLA,AAPL"
-DEFAULT_QUIET_WINDOWS = "08:50-09:15,15:20-15:45"
+DEFAULT_QUIET_WINDOWS = ""
 
 
 def parse_tickers(tickers_raw: str) -> Dict[str, str]:

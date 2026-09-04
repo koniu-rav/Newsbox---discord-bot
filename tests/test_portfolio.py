@@ -26,6 +26,7 @@ def test_parse_quiet_windows():
 def test_is_in_quiet_window():
     """Test session open quiet window detection."""
     service = NewsService()
+    service.settings.session_quiet_windows = "08:50-09:15, 15:20-15:45"
 
     # Time inside European open (09:00)
     inside_eu_open = datetime(2026, 9, 1, 9, 0, 0)
@@ -61,4 +62,28 @@ def test_state_manager(tmp_path):
     # Remove
     mgr2.remove_portfolio_ticker("NVDA")
     assert "NVDA" not in mgr2.get_portfolio_tickers()
+
+
+def test_state_manager_flash_news_migration(tmp_path):
+    """Test StateManager automatically migrates legacy 25,55 minute_cron to 5,35."""
+    import json
+    from newsbox.services.state_service import StateManager
+
+    state_file = tmp_path / "legacy_state.json"
+    legacy_data = {
+        "channels": {},
+        "portfolio_tickers": [],
+        "schedules": {
+            "flash_news": {"minute_cron": "25,55"}
+        }
+    }
+    state_file.write_text(json.dumps(legacy_data), encoding="utf-8")
+
+    mgr = StateManager(state_file=state_file)
+    flash_cfg = mgr.get_schedule("flash_news")
+    assert flash_cfg["minute_cron"] == "5,35"
+
+    # Verify persisted to file
+    saved_data = json.loads(state_file.read_text(encoding="utf-8"))
+    assert saved_data["schedules"]["flash_news"]["minute_cron"] == "5,35"
 
