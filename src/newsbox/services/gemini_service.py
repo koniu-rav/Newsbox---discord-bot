@@ -359,14 +359,13 @@ class GeminiService:
                 speech_note = ev.get("speech_note", "rozpoczął się (uwaga na zmienność na rynku)")
                 impacts[ev_id] = speech_note
             else:
-                actual = ev.get("actual", "")
                 badge = ev.get("sentiment_badge", "⚪")
                 if badge == "🟢":
-                    impacts[ev_id] = f"Odczyt wyższy od prognoz — potencjalne wsparcie dla {currency}."
+                    impacts[ev_id] = f"Potencjalne wsparcie dla {currency}."
                 elif badge == "🔴":
-                    impacts[ev_id] = f"Odczyt poniżej prognoz — presja spadkowa na {currency}."
+                    impacts[ev_id] = f"Presja spadkowa na {currency}."
                 else:
-                    impacts[ev_id] = f"Odczyt zgodny z konsensusem rynkowym ({actual}), neutralny dla {currency}."
+                    impacts[ev_id] = f"Reakcja neutralna dla {currency}."
 
         if not self._client:
             return impacts
@@ -386,11 +385,12 @@ class GeminiService:
             "Jesteś profesjonalnym traderem makroekonomicznym i analitykiem we.trade.\n"
             "Właśnie opublikowano serię oficjalnych danych makroekonomicznych:\n"
             f"{events_str}\n\n"
-            f"Zadanie: Dla KAŻDEGO z powyższych punktów (od 1 do {len(events_to_analyze)}) napisz DOKŁADNIE 1 zwięzłe zdanie (maks. 15-20 słów) "
-            "wyjaśniające bezpośredni wpływ tego wyniku na rynek (walutę, indeksy lub stopy procentowe). "
-            "Odpowiedz w ponumerowanych liniach odpowiadających numeracji, np.:\n"
-            "1. Wyższy odczyt wspiera walutę i oddala perspektywę cięć stóp.\n"
-            "2. Spadek wskaźnika osłabia walutę i napędza oczekiwania na łagodzenie polityki.\n"
+            f"Zadanie: Dla KAŻDEGO z powyższych punktów (od 1 do {len(events_to_analyze)}) napisz DOKŁADNIE 1 zwięzłe zdanie (maks. 10-15 słów) "
+            "wyjaśniające bezpośredni wpływ tego wyniku na rynek (np. presja spadkowa na walutę, wsparcie dla indeksów, brak impulsu dla stóp). "
+            "BARDZO WAŻNE: NIE pisz 'odczyt wyższy/niższy od prognoz' ani 'wynik powyżej/poniżej oczekiwań', ponieważ użytkownik widzi to po kolorze kółka (zielone/czerwone/szare). "
+            "Podaj od razu sam rynkowy wniosek, np.:\n"
+            "1. Presja spadkowa na CAD i wzrost szans na cięcie stóp.\n"
+            "2. Umocnienie kursu dolara i presja na rentowności obligacji.\n"
             "Zwróć wyłącznie ponumerowane linie, czysty polski język rynkowy bez wstępów."
         )
 

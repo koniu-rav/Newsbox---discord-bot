@@ -333,11 +333,8 @@ def test_format_macro_alerts_batch_message():
 
     assert "⚡ ODCZYTY MAKROEKONOMICZNE NA ŻYWO" not in msg
     assert "• 🔴 10:50 CET | [GBP] | BOE Gov Bailey Speaks | Wystąpienie rozpoczęte |" in msg
-    assert "Employment Change" in msg
-    assert "**Akt: 44.0K** 🟢" in msg
-    assert "Progn: 15.1K" in msg
-    assert "Poprz: 75.1K" in msg
-    assert "Lepszy wynik z rynku pracy wspiera dolara kanadyjskiego." in msg
+    assert "• 🔴 14:30 CET | [CAD] | Employment Change | **Akt: 44.0K** 🟢 | Progn: 15.1K | Poprz: 75.1K | Lepszy wynik z rynku pracy wspiera dolara kanadyjskiego." in msg
+    assert "• 🔴 14:30 CET | [CAD] | Unemployment Rate | **Akt: 6.4%** ⚪ | Progn: 6.4% | Poprz: 6.4% | Wynik neutralny, zgodny z oczekiwaniami rynku." in msg
     assert "Live Macro Pulse" in msg
 
 
