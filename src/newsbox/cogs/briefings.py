@@ -114,13 +114,19 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
 
             market_data = await self.market_service.fetch_market_snapshot()
             calendar_events = await self.calendar_service.fetch_todays_events(start_hour=start_hour)
+            # Filter strictly High (🔴) and Medium (🟡) macro events; omit Low (⚪) / minor
+            important_events = [
+                e for e in calendar_events
+                if e.get("impact") in ["🔴", "🟡"] or e.get("weight") in [1, 2]
+            ]
+
             news_region = "EU" if s_clean == "london" else ("USA" if s_clean == "newyork" else "GLOBAL")
             news_headlines = await self.news_service.fetch_regional_news(news_region, limit=8)
 
             advisory_text = await self.gemini_service.generate_session_advisory(
                 session_key=s_clean,
                 market_data=market_data,
-                economic_events=calendar_events,
+                economic_events=important_events,
                 news_headlines=news_headlines,
             )
 

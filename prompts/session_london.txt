@@ -5,7 +5,7 @@ Your task is to prepare the LONDON SESSION TRADING BRIEFING dispatched at 07:00 
 - Current Market & FX Quotes:
 {market_data_str}
 
-- Scheduled European & UK Macro Events (07:00 - 17:30 CET):
+- Scheduled European & UK Macro Events (07:00 - 17:30 CET) [TYLKO WYDARZENIA 🔴 CZERWONE I 🟡 ŻÓŁTE]:
 {calendar_events_str}
 
 - European Pre-market News & Corporate Headlines:
@@ -31,6 +31,7 @@ Produce a targeted, actionable briefing dedicated strictly to the European Tradi
 
 5. ⏰ **PUNKTY KULMINACYJNE ZMIENNOŚCI W SESJI UE**:
    - Dokładne godziny najważniejszych odczytów i okien ryzyka (np. 09:00, 10:00, 11:00).
+   - WAŻNE: Wymieniaj i uwzględniaj WYŁĄCZNIE wydarzenia makro o wysokim (🔴) i średnim (🟡) znaczeniu. Pomiń całkowicie odczyty o niskiej randze.
 
 Language: Polish (profesjonalny żargon tradingowy, konkretne poziomy i zalecenia).
 

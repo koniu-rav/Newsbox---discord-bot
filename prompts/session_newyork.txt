@@ -5,7 +5,7 @@ Your task is to prepare the NEW YORK SESSION TRADING BRIEFING dispatched at 13:3
 - Current Market & FX Quotes:
 {market_data_str}
 
-- Scheduled US & North American Macro Events (14:15 - 22:00 CET):
+- Scheduled US & North American Macro Events (14:15 - 22:00 CET) [TYLKO WYDARZENIA 🔴 CZERWONE I 🟡 ŻÓŁTE]:
 {calendar_events_str}
 
 - US Pre-market Headlines & Corporate Earnings:
@@ -21,6 +21,7 @@ Produce a targeted, actionable briefing dedicated strictly to the New York Tradi
 2. 📊 **REAKCJA NA DANE Z USA (14:15 / 14:30 / 16:00 CET)**
    - Scenariusze reakcji na dzisiejsze publikacje makro (ADP, NFP, CPI/PCE, ISM, Fed).
    - Kluczowe poziomy na parach z dolarem (EUR/USD, USD/JPY, GBP/USD).
+   - WAŻNE: Skupiaj się WYŁĄCZNIE na publikacjach o wysokim (🔴) i średnim (🟡) znaczeniu rynkowym. Ignoruj mało istotne dane.
 
 3. 🪙 **KRYPTO (BTC / ETH) & SUROWCE (ZŁOTO, ROPA)**
    - Wpływ wejścia kapitału z USA i korelacje z indeksami Wall Street.

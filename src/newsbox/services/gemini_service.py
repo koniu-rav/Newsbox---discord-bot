@@ -137,11 +137,16 @@ class GeminiService:
         ]
         market_str = "\n".join(market_lines) if market_lines else "Brak danych rynkowych"
 
+        # Filter strictly High (🔴) and Medium (🟡) events; omit Low (⚪) / less important
+        important_events = [
+            e for e in economic_events
+            if e.get("impact") in ["🔴", "🟡"] or e.get("weight") in [1, 2]
+        ]
         event_lines = [
             f"- {e.get('time', '')} [{e.get('currency', '')}] {e.get('title', '')} (Waga: {e.get('impact', '🟡')})"
-            for e in economic_events[:10]
+            for e in important_events[:12]
         ]
-        events_str = "\n".join(event_lines) if event_lines else "Brak bezpośrednich publikacji"
+        events_str = "\n".join(event_lines) if event_lines else "Brak istotnych publikacji (brak wydarzeń o wadze 🔴 lub 🟡)"
 
         news_lines = [
             f"- [{h.get('region', 'GLOBAL')}] {h.get('title', '')} ({h.get('source', '')})"

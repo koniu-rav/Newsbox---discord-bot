@@ -42,3 +42,33 @@ async def test_news_service_portfolio():
     service = NewsService()
     port_news = await service.fetch_portfolio_news(["CDR.WA", "NVDA"], limit=3)
     assert len(port_news) > 0
+
+
+@pytest.mark.asyncio
+async def test_gemini_service_session_advisory_filters_macro_events():
+    """Test that session advisory strictly includes 🔴 and 🟡 events and excludes ⚪."""
+    service = GeminiService(api_key="test-key", prompts_dir="prompts")
+    service._client = AsyncMock()
+
+    with patch.object(service, "_call_gemini", new_callable=AsyncMock) as mock_call:
+        mock_call.return_value = "Briefing OK"
+        events = [
+            {"time": "09:00", "currency": "EUR", "title": "German CPI", "impact": "🔴", "weight": 1},
+            {"time": "10:30", "currency": "GBP", "title": "UK Services PMI", "impact": "🟡", "weight": 2},
+            {"time": "11:00", "currency": "EUR", "title": "Minor Survey", "impact": "⚪", "weight": 3},
+            {"time": "12:00", "currency": "USD", "title": "Low Impact Stat", "impact": "⚪", "weight": 3},
+        ]
+        res = await service.generate_session_advisory(
+            session_key="london",
+            market_data={"EUR/USD": {"price": "1.0850", "change_pct": "+0.1%"}},
+            economic_events=events,
+            news_headlines=[],
+        )
+        assert res == "Briefing OK"
+        mock_call.assert_called_once()
+        prompt_arg = mock_call.call_args[0][0]
+        assert "German CPI" in prompt_arg
+        assert "UK Services PMI" in prompt_arg
+        assert "Minor Survey" not in prompt_arg
+        assert "Low Impact Stat" not in prompt_arg
+
