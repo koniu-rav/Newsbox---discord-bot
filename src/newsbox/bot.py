@@ -164,6 +164,12 @@ class NewsboxBot(commands.Bot):
             minute=pnews.get("minute", 0),
         )
 
+        # 9. Schedule Real-Time Macro Alerts Monitor (every 45 seconds)
+        self.scheduler.schedule_realtime_macro_alerts(
+            self.dispatch_realtime_macro_alerts,
+            interval_seconds=45,
+        )
+
         self.scheduler.start()
 
 
@@ -275,6 +281,28 @@ class NewsboxBot(commands.Bot):
             channel = await self._resolve_channel(cal_ch_id)
             if channel:
                 await briefings_cog.compile_and_send_calendar_briefing(channel)
+
+    async def dispatch_realtime_macro_alerts(self) -> None:
+        """Executed periodically (every 45s) to check for newly published high/medium macro releases."""
+        briefings_cog = self.get_cog("Briefings & Trader Advisory")
+        if not briefings_cog:
+            return
+
+        target_ch_id = (
+            self.state_manager.get_channel("macro_alerts")
+            or self.settings.discord_macro_alerts_channel_id
+        )
+        if not target_ch_id:
+            return
+
+        channel = await self._resolve_channel(target_ch_id)
+        if not channel:
+            return
+
+        try:
+            await briefings_cog.check_and_dispatch_macro_alerts(channel)
+        except Exception as e:
+            logger.error("Error in realtime macro alerts dispatch: %s", e, exc_info=True)
 
     async def dispatch_scheduled_flash_news(self) -> None:
         """Executed automatically to dispatch 2-3 sentence global flash news."""

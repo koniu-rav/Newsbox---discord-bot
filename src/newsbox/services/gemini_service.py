@@ -308,6 +308,42 @@ class GeminiService:
 
         return await self._call_gemini(prompt, fallback_msg="Analiza kalendarza chwilowo niedostępna.")
 
+    async def generate_macro_alert_impact(self, event: Dict[str, Any]) -> str:
+        """Generate a concise 1-2 sentence real-time market impact interpretation for a published macro figure."""
+        title = event.get("title", "")
+        currency = event.get("currency", "USD")
+        actual = event.get("actual", "")
+        forecast = event.get("forecast", "Brak")
+        previous = event.get("previous", "Brak")
+        sentiment_desc = event.get("sentiment_desc", "")
+
+        fallback_comment = f"Odczyt {actual} przy prognozie {forecast} ({sentiment_desc}). Zwróć uwagę na bezpośrednią zmienność na parach z {currency}."
+
+        if not self._client:
+            return fallback_comment
+
+        prompt = (
+            "Jesteś profesjonalnym analitykiem makroekonomicznym i traderem rynkowym dla we.trade.\n"
+            "Właśnie opublikowano oficjalny odczyt makroekonomiczny:\n"
+            f"- Wydarzenie: {title}\n"
+            f"- Waluta/Kraj: {currency}\n"
+            f"- Opublikowany wynik (Aktualny): {actual}\n"
+            f"- Prognoza rynkowa: {forecast}\n"
+            f"- Poprzedni odczyt: {previous}\n"
+            f"- Ocena odchylenia: {sentiment_desc}\n\n"
+            "Zadanie: Napisz MAKSYMALNIE 1-2 zwięzłe, konkretne zdania po polsku opisujące natychmiastowy wpływ tego odczytu "
+            f"na walutę {currency}, dolara (DXY), indeksy lub oczekiwania co do stóp procentowych banku centralnego. "
+            "Bądź konkretny, bez zbędnych wstępów, czysty profesjonalny język rynkowy."
+        )
+
+        try:
+            return await asyncio.wait_for(
+                self._call_gemini(prompt, fallback_msg=fallback_comment),
+                timeout=7.0,
+            )
+        except Exception:
+            return fallback_comment
+
     async def generate_crypto_summary(self, crypto_headlines: List[Dict[str, Any]]) -> str:
         """Generate a dedicated global cryptocurrency and digital asset summary."""
         if not self._client:

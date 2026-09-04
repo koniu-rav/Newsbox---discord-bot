@@ -76,6 +76,9 @@ try:
         discord_portfolio_channel_id: Optional[int] = Field(default=None, alias="DISCORD_PORTFOLIO_CHANNEL_ID")
         discord_portfolio_news_channel_id: Optional[int] = Field(default=None, alias="DISCORD_PORTFOLIO_NEWS_CHANNEL_ID")
         discord_accuracy_channel_id: Optional[int] = Field(default=None, alias="DISCORD_ACCURACY_CHANNEL_ID")
+        discord_macro_alerts_channel_id: Optional[int] = Field(
+            default=1545318318204919829, alias="DISCORD_MACRO_ALERTS_CHANNEL_ID"
+        )
 
         # Backward compatibility alias
         discord_briefing_channel_id: Optional[int] = Field(default=None, alias="DISCORD_BRIEFING_CHANNEL_ID")
@@ -90,6 +93,7 @@ try:
             "discord_portfolio_channel_id",
             "discord_portfolio_news_channel_id",
             "discord_accuracy_channel_id",
+            "discord_macro_alerts_channel_id",
             "discord_briefing_channel_id",
             mode="before",
         )
@@ -211,6 +215,11 @@ except ImportError:
             port_news_ch = os.getenv("DISCORD_PORTFOLIO_NEWS_CHANNEL_ID")
             self.discord_portfolio_news_channel_id: Optional[int] = (
                 int(port_news_ch) if port_news_ch and port_news_ch.isdigit() else None
+            )
+
+            macro_alerts_ch = os.getenv("DISCORD_MACRO_ALERTS_CHANNEL_ID", "1545318318204919829")
+            self.discord_macro_alerts_channel_id: Optional[int] = (
+                int(macro_alerts_ch) if macro_alerts_ch and macro_alerts_ch.isdigit() else None
             )
 
             # Gemini & Prompts

@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Callable, Coroutine, Any, Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from newsbox.config import get_settings
 from newsbox.utils.logger import setup_logger
 
@@ -282,6 +283,22 @@ class SchedulerService:
             minute,
             self.settings.briefing_timezone,
         )
+
+    def schedule_realtime_macro_alerts(
+        self,
+        alert_job: Callable[[], Coroutine[Any, Any, None]],
+        interval_seconds: int = 45,
+    ) -> None:
+        """Register periodic real-time macro alerts monitor (every interval_seconds, default 45s)."""
+        trigger = IntervalTrigger(seconds=interval_seconds)
+        self.scheduler.add_job(
+            alert_job,
+            trigger=trigger,
+            id="realtime_macro_alerts",
+            name=f"Real-Time Macro Alerts Monitor (every {interval_seconds}s)",
+            replace_existing=True,
+        )
+        logger.info("Scheduled Real-Time Macro Alerts Monitor every %ds", interval_seconds)
 
     def reschedule_cron_job(
         self,

@@ -3,6 +3,7 @@
 import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+import re
 from zoneinfo import ZoneInfo
 import aiohttp
 from bs4 import BeautifulSoup
@@ -320,3 +321,188 @@ class CalendarService:
         return [
             {"time": "09:00 CET", "currency": "EUR", "title": "Otwarcie sesji europejskiej i publikacje PMI", "impact": "🟡"}
         ]
+
+    async def fetch_live_published_macro_events(self) -> List[Dict[str, Any]]:
+        """Fetch today's high and medium impact economic events that have already been published (have Actual value)."""
+        now = datetime.now(WARSAW_TZ)
+        today_str = now.strftime("%Y-%m-%d")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+
+        curr_map = {
+            "UNITED STATES": "USD", "US": "USD",
+            "EURO AREA": "EUR", "GERMANY": "EUR", "FRANCE": "EUR", "ITALY": "EUR", "SPAIN": "EUR", "EA": "EUR", "DE": "EUR",
+            "UNITED KINGDOM": "GBP", "GB": "GBP",
+            "POLAND": "PLN", "PL": "PLN",
+            "JAPAN": "JPY", "JP": "JPY",
+            "CANADA": "CAD", "CA": "CAD",
+            "SWITZERLAND": "CHF", "CH": "CHF",
+            "AUSTRALIA": "AUD", "AU": "AUD",
+            "CHINA": "CNY", "CN": "CNY",
+            "NEW ZEALAND": "NZD", "NZ": "NZD",
+        }
+
+        country_name_map = {
+            "USD": "USA",
+            "EUR": "Strefa Euro",
+            "GBP": "Wielka Brytania",
+            "PLN": "Polska",
+            "JPY": "Japonia",
+            "CAD": "Kanada",
+            "CHF": "Szwajcaria",
+            "AUD": "Australia",
+            "CNY": "Chiny",
+            "NZD": "Nowa Zelandia",
+        }
+
+        flag_map = {
+            "USD": "🇺🇸",
+            "EUR": "🇪🇺",
+            "GBP": "🇬🇧",
+            "PLN": "🇵🇱",
+            "JPY": "🇯🇵",
+            "CAD": "🇨🇦",
+            "CHF": "🇨🇭",
+            "AUD": "🇦🇺",
+            "CNY": "🇨🇳",
+            "NZD": "🇳🇿",
+        }
+
+        high_keywords = [
+            "CPI", "INFLATION", "INTEREST RATE", "FED", "FOMC", "ECB", "NFP", "NON-FARM",
+            "GDP", "PCE", "PMI", "UNEMPLOYMENT", "RATE DECISION", "PAYROLLS", "RETAIL SALES",
+            "SPEECH", "PRESS CONFERENCE"
+        ]
+        med_keywords = [
+            "PPI", "TRADE BALANCE", "CONSUMER CONFIDENCE", "HOUSING", "ORDERS", "INVENTORIES",
+            "BUDGET", "CLAIMS", "BALANCE OF TRADE", "BEIGE BOOK"
+        ]
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=8), headers=headers) as session:
+                async with session.get(TRADING_ECONOMICS_URL) as response:
+                    if response.status != 200:
+                        logger.warning("Failed to fetch TradingEconomics live table: HTTP %s", response.status)
+                        return []
+
+                    html = await response.text()
+                    soup = BeautifulSoup(html, "html.parser")
+                    table = soup.find("table", {"id": "calendar"})
+                    if not table:
+                        return []
+
+                    published_events = []
+                    for r in table.find_all("tr"):
+                        first_td = r.find("td")
+                        if not first_td:
+                            continue
+                        classes = first_td.get("class", [])
+                        if today_str not in classes:
+                            continue
+
+                        cells = r.find_all("td")
+                        if len(cells) < 6:
+                            continue
+
+                        country_raw = r.get("data-country", cells[1].text.strip()).strip().upper()
+                        if country_raw not in curr_map:
+                            continue
+
+                        currency = curr_map[country_raw]
+                        event_raw = " ".join(cells[4].text.split()).replace("®", "").strip()
+                        ev_upper = event_raw.upper()
+
+                        # Exclude routine treasury bond/bill auctions
+                        if "AUCTION" in ev_upper:
+                            continue
+
+                        # Check impact: strictly 🔴 High (1) and 🟡 Medium (2)
+                        if any(k in ev_upper for k in high_keywords):
+                            impact = "🔴"
+                            weight = 1
+                        elif any(k in ev_upper for k in med_keywords):
+                            impact = "🟡"
+                            weight = 2
+                        else:
+                            continue  # Skip low-impact events
+
+                        # Check actual value (cell 5 or span id="actual")
+                        actual_span = r.find("span", {"id": "actual"})
+                        actual_val = actual_span.text.strip() if actual_span else cells[5].text.strip()
+                        if not actual_val:
+                            # Not yet published!
+                            continue
+
+                        # Clean up actual
+                        actual_clean = " ".join(actual_val.replace("®", "").split())
+                        if not actual_clean:
+                            continue
+
+                        # Parse time in EDT -> Europe/Warsaw
+                        time_val = " ".join(cells[0].text.split())
+                        event_dt = now
+                        if time_val:
+                            try:
+                                t_clean = " ".join(time_val.replace("EST", "").replace("EDT", "").split())
+                                dt_ny = datetime.strptime(f"{today_str} {t_clean}", "%Y-%m-%d %I:%M %p").replace(tzinfo=NY_TZ)
+                                event_dt = dt_ny.astimezone(WARSAW_TZ)
+                            except Exception:
+                                pass
+
+                        # Previous and forecast
+                        prev_span = r.find("span", {"id": "previous"})
+                        previous_val = prev_span.text.strip() if prev_span else (cells[6].text.strip() if len(cells) > 6 else "")
+                        previous_clean = " ".join(previous_val.replace("®", "").split())
+
+                        revised_span = r.find("span", {"id": "revised"})
+                        revised_note = revised_span.get("title", "").strip() if revised_span else ""
+
+                        cons_elem = r.find(id="consensus")
+                        forecast_val = cons_elem.text.strip() if cons_elem else (cells[7].text.strip() if len(cells) > 7 else "")
+                        forecast_clean = " ".join(forecast_val.replace("®", "").split())
+
+                        data_id = r.get("data-id")
+                        event_id = f"te_{data_id}" if data_id else f"te_{today_str}_{currency}_{event_raw.replace(' ', '_')}"
+
+                        # Determine surprise / deviation emoji
+                        sentiment_badge = "⚪"
+                        sentiment_desc = "Zgodny z prognozą"
+                        if forecast_clean and actual_clean:
+                            try:
+                                act_num = float(re.sub(r"[^\d.-]", "", actual_clean.replace(",", ".")))
+                                fcast_num = float(re.sub(r"[^\d.-]", "", forecast_clean.replace(",", ".")))
+                                if act_num > fcast_num:
+                                    sentiment_badge = "🟢"
+                                    sentiment_desc = "Wyższy od prognoz"
+                                elif act_num < fcast_num:
+                                    sentiment_badge = "🔴"
+                                    sentiment_desc = "Niższy od prognoz"
+                            except Exception:
+                                pass
+
+                        published_events.append({
+                            "event_id": event_id,
+                            "title": event_raw,
+                            "currency": currency,
+                            "country": country_name_map.get(currency, country_raw),
+                            "flag": flag_map.get(currency, "🌐"),
+                            "impact": impact,
+                            "weight": weight,
+                            "actual": actual_clean,
+                            "forecast": forecast_clean or "Brak",
+                            "previous": previous_clean or "Brak",
+                            "revised": revised_note,
+                            "time": event_dt.strftime("%H:%M CET"),
+                            "dt": event_dt,
+                            "sentiment_badge": sentiment_badge,
+                            "sentiment_desc": sentiment_desc,
+                        })
+
+                    logger.debug("Fetched %d live published events from TradingEconomics", len(published_events))
+                    return published_events
+        except Exception as e:
+            logger.warning("Error while fetching live published macro events: %s", e)
+            return []
+

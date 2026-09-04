@@ -46,6 +46,7 @@ class StateManager:
                 self._state["channels"] = data.get("channels", {})
                 self._state["portfolio_tickers"] = data.get("portfolio_tickers", [])
                 self._state["schedules"] = data.get("schedules", {})
+                self._state["published_macro_events"] = data.get("published_macro_events", [])
 
                 # Merge default schedules if any are missing
                 modified = False
@@ -53,6 +54,10 @@ class StateManager:
                     if k not in self._state["schedules"]:
                         self._state["schedules"][k] = dict(v)
                         modified = True
+
+                if "macro_alerts" not in self._state["channels"]:
+                    self._state["channels"]["macro_alerts"] = self.settings.discord_macro_alerts_channel_id
+                    modified = True
 
                 if modified:
                     self.save_state()
@@ -72,9 +77,11 @@ class StateManager:
             "portfolio": self.settings.discord_portfolio_channel_id,
             "portfolio_news": self.settings.discord_portfolio_news_channel_id,
             "accuracy": self.settings.discord_accuracy_channel_id,
+            "macro_alerts": self.settings.discord_macro_alerts_channel_id,
         }
         self._state["portfolio_tickers"] = list(self.settings.portfolio_tickers)
         self._state["schedules"] = {k: dict(v) for k, v in DEFAULT_SCHEDULES.items()}
+        self._state["published_macro_events"] = []
         self.save_state()
 
     def save_state(self) -> None:
@@ -113,6 +120,8 @@ class StateManager:
             self.settings.discord_portfolio_news_channel_id = channel_id
         elif c_type in ["accuracy", "skutecznosc", "stats", "wyniki"]:
             self.settings.discord_accuracy_channel_id = channel_id
+        elif c_type in ["macro_alerts", "alerts", "odczyty", "dane_macro", "macro_dane", "live_macro"]:
+            self.settings.discord_macro_alerts_channel_id = channel_id
 
         self.save_state()
 
@@ -123,6 +132,27 @@ class StateManager:
     def get_all_channels(self) -> Dict[str, Optional[int]]:
         """Return copy of all mapped channels."""
         return dict(self._state.get("channels", {}))
+
+    # ---------------- Real-Time Macro Events Tracking ---------------- #
+
+    def is_macro_event_published(self, event_id: str) -> bool:
+        """Check if a macro event has already been published/alerted."""
+        events = self._state.get("published_macro_events", [])
+        return event_id in events
+
+    def mark_macro_event_published(self, event_id: str) -> None:
+        """Record macro event ID to avoid duplicate alerts."""
+        events = self._state.setdefault("published_macro_events", [])
+        if event_id not in events:
+            events.append(event_id)
+            # Retain last 300 event IDs to prevent unbounded state growth
+            if len(events) > 300:
+                self._state["published_macro_events"] = events[-300:]
+            self.save_state()
+
+    def get_published_macro_events(self) -> List[str]:
+        """Get list of published macro event IDs."""
+        return list(self._state.get("published_macro_events", []))
 
     # ---------------- Schedule Management ---------------- #
 

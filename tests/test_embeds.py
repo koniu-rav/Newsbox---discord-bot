@@ -284,3 +284,33 @@ def test_clean_markdown_text():
     assert "🎯 **ZALECENIE**: DAX Long" in cleaned
     assert "Finansowy komentarz." in cleaned
 
+
+def test_format_macro_alert_message():
+    """Test full-width real-time macro alert formatting."""
+    from newsbox.utils.embeds import format_macro_alert_message
+
+    event = {
+        "title": "Non-Farm Employment Change",
+        "currency": "USD",
+        "flag": "🇺🇸",
+        "country": "USA",
+        "time": "14:30 CET",
+        "impact": "🔴",
+        "actual": "+72K",
+        "forecast": "55K",
+        "previous": "-23K",
+        "revised": "zrewidowano z -15K",
+        "sentiment_badge": "🟢",
+        "sentiment_desc": "Wyższy od prognoz",
+    }
+    msg = format_macro_alert_message(event, ai_commentary="Dolar umacnia się po lepszym odczycie.")
+
+    assert "## ⚡ ODCZYT MAKROEKONOMICZNY [USD] 🇺🇸" in msg
+    assert "### 🔴 Non-Farm Employment Change • 14:30 CET" in msg
+    assert "• **Odczyt (Aktualny)**: `+72K` 🟢 *(Wyższy od prognoz)*" in msg
+    assert "• **Prognoza (Konsensus)**: `55K`" in msg
+    assert "• **Poprzednia wartość**: `-23K` *(zrewidowano z -15K)*" in msg
+    assert "Dolar umacnia się po lepszym odczycie." in msg
+    assert "Live Macro Pulse" in msg
+
+

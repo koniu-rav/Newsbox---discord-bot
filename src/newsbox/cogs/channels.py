@@ -77,11 +77,17 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             "skutecznosc": "🎯 Raporty Skuteczności & Ewaluacje Sesji",
             "stats": "🎯 Raporty Skuteczności & Ewaluacje Sesji",
             "wyniki": "🎯 Raporty Skuteczności & Ewaluacje Sesji",
+            "macro_alerts": "⚡ Odczyty Makro w Czasie Rzeczywistym (🔴 i 🟡)",
+            "alerts": "⚡ Odczyty Makro w Czasie Rzeczywistym (🔴 i 🟡)",
+            "odczyty": "⚡ Odczyty Makro w Czasie Rzeczywistym (🔴 i 🟡)",
+            "dane_macro": "⚡ Odczyty Makro w Czasie Rzeczywistym (🔴 i 🟡)",
+            "macro_dane": "⚡ Odczyty Makro w Czasie Rzeczywistym (🔴 i 🟡)",
+            "live_macro": "⚡ Odczyty Makro w Czasie Rzeczywistym (🔴 i 🟡)",
         }
 
         if c_type not in type_descriptions:
             await ctx.send(
-                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `accuracy`, `news_pl`, `news_global` / `flash`, `crypto`, `portfolio`, `portfolio_news`."
+                "❌ Nieznany typ kanału. Dostępne: `macro`, `calendar`, `accuracy`, `macro_alerts` / `odczyty`, `news_pl`, `news_global` / `flash`, `crypto`, `portfolio`, `portfolio_news`."
             )
             return
 
@@ -101,6 +107,8 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             canonical_key = "portfolio_news"
         elif c_type in ["accuracy", "skutecznosc", "stats", "wyniki"]:
             canonical_key = "accuracy"
+        elif c_type in ["macro_alerts", "alerts", "odczyty", "dane_macro", "macro_dane", "live_macro"]:
+            canonical_key = "macro_alerts"
 
         self.state_manager.set_channel(canonical_key, target.id)
         desc = type_descriptions[c_type]
@@ -120,6 +128,7 @@ class ChannelsCog(commands.Cog, name="Channel Routing"):
             "## 📡 Konfiguracja Kanałów Powiadomień (Trwały Zapis)",
             f"• **🌅 Raporty Makro & Sesyjne:** {ch_mention(channels.get('macro') or self.settings.macro_channel_id)}",
             f"• **📅 Kalendarz Ekonomiczny 24h:** {ch_mention(channels.get('calendar'))}",
+            f"• **⚡ Odczyty Makro Na Żywo (🔴 i 🟡):** {ch_mention(channels.get('macro_alerts') or self.settings.discord_macro_alerts_channel_id)}",
             f"• **🎯 Raporty Skuteczności & Stats:** {ch_mention(channels.get('accuracy') or self.settings.discord_accuracy_channel_id)}",
             f"• **⚡ Flash News Ze Świata (Auto :25, :55):** {ch_mention(channels.get('news_global') or self.settings.discord_news_global_channel_id or 1544598484961722409)}",
             f"• **🇵🇱 Newsy Polska / GPW:** {ch_mention(channels.get('news_pl'))}",

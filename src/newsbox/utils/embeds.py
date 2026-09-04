@@ -824,6 +824,55 @@ def format_portfolio_message(
     return "\n\n".join(parts)
 
 
+def format_macro_alert_message(
+    event: Dict[str, Any],
+    ai_commentary: Optional[str] = None,
+) -> str:
+    """Format real-time published economic event alert as a clean full-width Discord markdown message."""
+    title = event.get("title", "Publikacja Makro")
+    currency = event.get("currency", "USD")
+    flag = event.get("flag", "🌐")
+    country = event.get("country", currency)
+    time_str = event.get("time", "")
+    impact = event.get("impact", "🔴")
+    actual = event.get("actual", "Brak")
+    forecast = event.get("forecast", "Brak")
+    previous = event.get("previous", "Brak")
+    revised = event.get("revised", "")
+    sentiment_badge = event.get("sentiment_badge", "⚪")
+    sentiment_desc = event.get("sentiment_desc", "")
+
+    header = f"## ⚡ ODCZYT MAKROEKONOMICZNY [{currency}] {flag}"
+
+    # Previous line with optional revision
+    prev_str = f"`{previous}`"
+    if revised:
+        prev_str += f" *({revised})*"
+
+    # Forecast line
+    fcast_str = f"`{forecast}`"
+
+    # Actual line with deviation badge
+    act_str = f"`{actual}` {sentiment_badge} *({sentiment_desc})*" if sentiment_desc else f"`{actual}`"
+
+    parts = [
+        header,
+        (
+            f"### {impact} {title} • {time_str}\n"
+            f"• **Kraj / Obszar**: {country} ({currency})\n"
+            f"• **Odczyt (Aktualny)**: {act_str}\n"
+            f"• **Prognoza (Konsensus)**: {fcast_str}\n"
+            f"• **Poprzednia wartość**: {prev_str}"
+        ),
+    ]
+
+    if ai_commentary:
+        parts.append(f"### 💡 Wpływ Rynkowy & Interpretacja\n{clean_markdown_text(ai_commentary)}")
+
+    parts.append(f"-# {BRAND_FOOTER} • Live Macro Pulse")
+    return "\n\n".join(parts)
+
+
 def format_accuracy_message(
     evaluation_result: Dict[str, Any],
     stats: Dict[str, Any],

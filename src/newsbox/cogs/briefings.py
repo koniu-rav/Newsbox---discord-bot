@@ -1,7 +1,8 @@
 """Briefings Cog - handles Sunday Weekly Outlook, 3 Daily Session Briefings (London, New York, Asia), Single-Asset Advisory, and Multi-Tier Accuracy Tracking."""
 
+import asyncio
 from datetime import datetime, date
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from zoneinfo import ZoneInfo
 import discord
 from discord.ext import commands
@@ -12,6 +13,7 @@ from newsbox.services.calendar_service import CalendarService
 from newsbox.services.gemini_service import GeminiService
 from newsbox.services.market_service import MarketService
 from newsbox.services.news_service import NewsService
+from newsbox.services.state_service import get_state_manager
 from newsbox.utils.embeds import (
     create_accuracy_embed,
     create_calendar_embed,
@@ -22,6 +24,7 @@ from newsbox.utils.embeds import (
     format_accuracy_message,
     format_calendar_message,
     format_error_message,
+    format_macro_alert_message,
     format_session_advisory_message,
     format_single_asset_message,
     format_weekly_accuracy_message,
@@ -40,6 +43,7 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
         self.settings = get_settings()
+        self.state_manager = get_state_manager()
         self.market_service = MarketService()
         self.calendar_service = CalendarService()
         self.news_service = NewsService()
@@ -356,8 +360,60 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             await send_full_message(channel, msg_text)
         except Exception as e:
             logger.error("Failed to send calendar briefing: %s", e, exc_info=True)
-        except Exception as e:
-            logger.error("Failed to send calendar briefing: %s", e, exc_info=True)
+
+    async def check_and_dispatch_macro_alerts(self, channel: discord.abc.Messageable) -> int:
+        """Poll for newly published high/medium macro releases, dispatch alerts, and mark as seen.
+        Returns count of dispatched alerts.
+        """
+        now = datetime.now(WARSAW_TZ)
+        published_events = await self.calendar_service.fetch_live_published_macro_events()
+        if not published_events:
+            return 0
+
+        dispatched_count = 0
+        for ev in published_events:
+            ev_id = ev.get("event_id")
+            if not ev_id:
+                continue
+
+            if self.state_manager.is_macro_event_published(ev_id):
+                continue
+
+            # Protection against spamming historical events on startup/redeploy:
+            # If the event scheduled time was more than 35 minutes ago, mark as published without sending alert.
+            ev_dt = ev.get("dt")
+            if ev_dt and (now - ev_dt).total_seconds() > 35 * 60:
+                logger.debug("Skipping historical macro alert (%s, %s): older than 35 mins", ev_id, ev.get("title"))
+                self.state_manager.mark_macro_event_published(ev_id)
+                continue
+
+            # Generate AI market commentary
+            ai_commentary = await self.gemini_service.generate_macro_alert_impact(ev)
+
+            # Format full-width alert
+            msg_text = format_macro_alert_message(ev, ai_commentary=ai_commentary)
+            await send_full_message(channel, msg_text)
+            self.state_manager.mark_macro_event_published(ev_id)
+            dispatched_count += 1
+            logger.info("Dispatched real-time macro alert: %s (%s) to %s", ev.get("title"), ev_id, channel)
+            await asyncio.sleep(1.0)  # Rate-limit cushion between multiple simultaneous releases
+
+        return dispatched_count
+
+    @commands.command(name="macro_alerts", aliases=["alerts", "odczyty", "dane"])
+    async def macro_alerts_command(self, ctx: commands.Context) -> None:
+        """Sprawdź ostatnio opublikowane odczyty makroekonomiczne z dzisiaj lub wymuś sprawdzenie."""
+        async with ctx.typing():
+            dispatched = await self.check_and_dispatch_macro_alerts(ctx.channel)
+            if dispatched == 0:
+                events = await self.calendar_service.fetch_live_published_macro_events()
+                if events:
+                    latest = events[-1]
+                    ai_comment = await self.gemini_service.generate_macro_alert_impact(latest)
+                    msg_text = format_macro_alert_message(latest, ai_commentary=ai_comment)
+                    await send_full_message(ctx.channel, f"ℹ️ *Brak nowych odczytów w tej minucie. Ostatni odczyt dzisiaj:*\n\n{msg_text}")
+                else:
+                    await ctx.send("ℹ️ Brak opublikowanych odczytów o wadze 🔴 lub 🟡 w dniu dzisiejszym.")
 
     @commands.command(name="briefing", aliases=["macro", "morning", "poranek"])
     async def briefing_command(self, ctx: commands.Context, target: Optional[str] = None) -> None:
