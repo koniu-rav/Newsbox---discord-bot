@@ -848,8 +848,9 @@ def format_macro_alerts_batch_message(
 
         if is_speech:
             if not comment:
-                comment = ev.get("speech_note", "rozpoczął się (uwaga na zmienność na rynku)")
-            event_lines.append(f"• {impact} {time_str} [{currency}] {title} - {clean_markdown_text(comment)}")
+                comment = ev.get("speech_note", "Wystąpienie rozpoczęte | uwaga na zmienność na rynku")
+            comment_fmt = clean_markdown_text(comment).replace(" — ", " | ").replace(" - ", " | ")
+            event_lines.append(f"• {impact} {time_str} | [{currency}] | {title} | Wystąpienie rozpoczęte | {comment_fmt}")
         else:
             actual = ev.get("actual", "Brak")
             forecast = ev.get("forecast", "Brak")
@@ -858,18 +859,27 @@ def format_macro_alerts_batch_message(
             sentiment_badge = ev.get("sentiment_badge", "⚪")
 
             badge_str = f" {sentiment_badge}" if sentiment_badge in ["🟢", "🔴"] else ""
-            prev_str = f"{previous} (rew. {revised})" if revised else previous
+
+            if revised:
+                rev_clean = re.sub(r"(?i)previous\s+revised\s+from", "rew. z", revised).strip()
+                if not rev_clean.startswith("rew."):
+                    rev_clean = f"rew. {rev_clean}"
+                prev_str = f"{previous} ({rev_clean})"
+            else:
+                prev_str = previous
 
             if not comment:
                 if sentiment_badge == "🟢":
-                    comment = f"Wyższy od prognoz odczyt wspiera {currency}."
+                    comment = f"Wyższy od prognoz odczyt | potencjalne wsparcie dla {currency}."
                 elif sentiment_badge == "🔴":
-                    comment = f"Niższy od prognoz odczyt wywiera presję na {currency}."
+                    comment = f"Odczyt poniżej prognoz | presja spadkowa na {currency}."
                 else:
-                    comment = "Odczyt neutralny, zgodny z oczekiwaniami rynku."
+                    comment = "Odczyt neutralny | zgodny z konsensusem rynku."
+
+            comment_fmt = clean_markdown_text(comment).replace(" — ", " | ")
 
             event_lines.append(
-                f"• {impact} {time_str} [{currency}] {title} (Akt: {actual}{badge_str}, Progn: {forecast}, Poprz: {prev_str}) - {clean_markdown_text(comment)}"
+                f"• {impact} {time_str} | [{currency}] | {title} | **Akt: {actual}**{badge_str} | Progn: {forecast} | Poprz: {prev_str} | {comment_fmt}"
             )
 
     body = "\n".join(event_lines)

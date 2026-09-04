@@ -332,9 +332,9 @@ def test_format_macro_alerts_batch_message():
     msg = format_macro_alerts_batch_message(events, impacts=impacts)
 
     assert "## ⚡ ODCZYTY MAKROEKONOMICZNE NA ŻYWO" in msg
-    assert "• 🔴 10:50 CET [GBP] BOE Gov Bailey Speaks - rozpoczął się (Bailey mówi, dajmy znać ze event sie rozpoczął)" in msg
-    assert "• 🔴 14:30 CET [CAD] Employment Change (Akt: 44.0K 🟢, Progn: 15.1K, Poprz: 75.1K) - Lepszy wynik z rynku pracy wspiera dolara kanadyjskiego." in msg
-    assert "• 🔴 14:30 CET [CAD] Unemployment Rate (Akt: 6.4%, Progn: 6.4%, Poprz: 6.4%) - Wynik neutralny, zgodny z oczekiwaniami rynku." in msg
+    assert "• 🔴 10:50 CET | [GBP] | BOE Gov Bailey Speaks | Wystąpienie rozpoczęte |" in msg
+    assert "• 🔴 14:30 CET | [CAD] | Employment Change | **Akt: 44.0K** 🟢 | Progn: 15.1K | Poprz: 75.1K | Lepszy wynik z rynku pracy wspiera dolara kanadyjskiego." in msg
+    assert "• 🔴 14:30 CET | [CAD] | Unemployment Rate | **Akt: 6.4%** | Progn: 6.4% | Poprz: 6.4% | Wynik neutralny, zgodny z oczekiwaniami rynku." in msg
     assert "Live Macro Pulse" in msg
 
 
@@ -358,7 +358,7 @@ def test_format_macro_alert_message_single():
     msg = format_macro_alert_message(event, ai_commentary="Dolar umacnia się po lepszym odczycie.")
 
     assert "## ⚡ ODCZYT MAKROEKONOMICZNY NA ŻYWO" in msg
-    assert "• 🔴 14:30 CET [USD] Non-Farm Employment Change (Akt: +72K 🟢, Progn: 55K, Poprz: -23K (rew. zrewidowano z -15K)) - Dolar umacnia się po lepszym odczycie." in msg
+    assert "• 🔴 14:30 CET | [USD] | Non-Farm Employment Change | **Akt: +72K** 🟢 | Progn: 55K | Poprz: -23K (rew. zrewidowano z -15K) | Dolar umacnia się po lepszym odczycie." in msg
     assert "Live Macro Pulse" in msg
 
 
