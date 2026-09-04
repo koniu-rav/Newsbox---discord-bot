@@ -25,6 +25,7 @@ from newsbox.utils.embeds import (
     format_calendar_message,
     format_error_message,
     format_macro_alert_message,
+    format_macro_alerts_batch_message,
     format_session_advisory_message,
     format_single_asset_message,
     format_weekly_accuracy_message,
@@ -362,7 +363,7 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             logger.error("Failed to send calendar briefing: %s", e, exc_info=True)
 
     async def check_and_dispatch_macro_alerts(self, channel: discord.abc.Messageable) -> int:
-        """Poll for newly published high/medium macro releases, dispatch alerts, and mark as seen.
+        """Poll for newly published high/medium macro releases, dispatch combined batch alert, and mark as seen.
         Returns count of dispatched alerts.
         """
         now = datetime.now(WARSAW_TZ)
@@ -370,7 +371,7 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
         if not published_events:
             return 0
 
-        dispatched_count = 0
+        pending_events: List[Dict[str, Any]] = []
         for ev in published_events:
             ev_id = ev.get("event_id")
             if not ev_id:
@@ -387,17 +388,29 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 self.state_manager.mark_macro_event_published(ev_id)
                 continue
 
-            # Generate AI market commentary
-            ai_commentary = await self.gemini_service.generate_macro_alert_impact(ev)
+            pending_events.append(ev)
 
-            # Format full-width alert
-            msg_text = format_macro_alert_message(ev, ai_commentary=ai_commentary)
+        if not pending_events:
+            return 0
+
+        # Generate concise market impacts in one batch call (with instant fallback)
+        impacts = await self.gemini_service.generate_macro_batch_impact(pending_events)
+
+        # Chunk pending events into batches of max 8 to safely fit Discord limit
+        chunk_size = 8
+        for i in range(0, len(pending_events), chunk_size):
+            chunk = pending_events[i : i + chunk_size]
+            msg_text = format_macro_alerts_batch_message(chunk, impacts=impacts)
             await send_full_message(channel, msg_text)
-            self.state_manager.mark_macro_event_published(ev_id)
-            dispatched_count += 1
-            logger.info("Dispatched real-time macro alert: %s (%s) to %s", ev.get("title"), ev_id, channel)
-            await asyncio.sleep(1.0)  # Rate-limit cushion between multiple simultaneous releases
+            for ev in chunk:
+                ev_id = ev.get("event_id")
+                if ev_id:
+                    self.state_manager.mark_macro_event_published(ev_id)
+            if i + chunk_size < len(pending_events):
+                await asyncio.sleep(1.0)
 
+        dispatched_count = len(pending_events)
+        logger.info("Dispatched %d real-time macro alerts in batch to %s", dispatched_count, channel)
         return dispatched_count
 
     @commands.command(name="macro_alerts", aliases=["alerts", "odczyty", "dane"])
@@ -408,10 +421,10 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             if dispatched == 0:
                 events = await self.calendar_service.fetch_live_published_macro_events()
                 if events:
-                    latest = events[-1]
-                    ai_comment = await self.gemini_service.generate_macro_alert_impact(latest)
-                    msg_text = format_macro_alert_message(latest, ai_commentary=ai_comment)
-                    await send_full_message(ctx.channel, f"ℹ️ *Brak nowych odczytów w tej minucie. Ostatni odczyt dzisiaj:*\n\n{msg_text}")
+                    recent = events[-5:]
+                    impacts = await self.gemini_service.generate_macro_batch_impact(recent)
+                    msg_text = format_macro_alerts_batch_message(recent, impacts=impacts)
+                    await send_full_message(ctx.channel, f"ℹ️ *Brak nowych odczytów w tej minucie. Ostatnie odczyty dzisiaj:*\n\n{msg_text}")
                 else:
                     await ctx.send("ℹ️ Brak opublikowanych odczytów o wadze 🔴 lub 🟡 w dniu dzisiejszym.")
 

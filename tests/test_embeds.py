@@ -285,32 +285,80 @@ def test_clean_markdown_text():
     assert "Finansowy komentarz." in cleaned
 
 
-def test_format_macro_alert_message():
-    """Test full-width real-time macro alert formatting."""
+def test_format_macro_alerts_batch_message():
+    """Test batch real-time macro alerts and speech formatting."""
+    from newsbox.utils.embeds import format_macro_alerts_batch_message
+
+    events = [
+        {
+            "event_id": "ev_1",
+            "title": "BOE Gov Bailey Speaks",
+            "currency": "GBP",
+            "time": "10:50 CET",
+            "impact": "🔴",
+            "is_speech": True,
+            "speech_note": "rozpoczął się (Bailey mówi, dajmy znać ze event sie rozpoczął)",
+        },
+        {
+            "event_id": "ev_2",
+            "title": "Employment Change",
+            "currency": "CAD",
+            "time": "14:30 CET",
+            "impact": "🔴",
+            "is_speech": False,
+            "actual": "44.0K",
+            "forecast": "15.1K",
+            "previous": "75.1K",
+            "sentiment_badge": "🟢",
+        },
+        {
+            "event_id": "ev_3",
+            "title": "Unemployment Rate",
+            "currency": "CAD",
+            "time": "14:30 CET",
+            "impact": "🔴",
+            "is_speech": False,
+            "actual": "6.4%",
+            "forecast": "6.4%",
+            "previous": "6.4%",
+            "sentiment_badge": "⚪",
+        },
+    ]
+    impacts = {
+        "ev_2": "Lepszy wynik z rynku pracy wspiera dolara kanadyjskiego.",
+        "ev_3": "Wynik neutralny, zgodny z oczekiwaniami rynku.",
+    }
+
+    msg = format_macro_alerts_batch_message(events, impacts=impacts)
+
+    assert "## ⚡ ODCZYTY MAKROEKONOMICZNE NA ŻYWO" in msg
+    assert "• 🔴 10:50 CET [GBP] BOE Gov Bailey Speaks - rozpoczął się (Bailey mówi, dajmy znać ze event sie rozpoczął)" in msg
+    assert "• 🔴 14:30 CET [CAD] Employment Change (Akt: 44.0K 🟢, Progn: 15.1K, Poprz: 75.1K) - Lepszy wynik z rynku pracy wspiera dolara kanadyjskiego." in msg
+    assert "• 🔴 14:30 CET [CAD] Unemployment Rate (Akt: 6.4%, Progn: 6.4%, Poprz: 6.4%) - Wynik neutralny, zgodny z oczekiwaniami rynku." in msg
+    assert "Live Macro Pulse" in msg
+
+
+def test_format_macro_alert_message_single():
+    """Test single real-time macro alert formatting using unified layout."""
     from newsbox.utils.embeds import format_macro_alert_message
 
     event = {
+        "event_id": "ev_single",
         "title": "Non-Farm Employment Change",
         "currency": "USD",
-        "flag": "🇺🇸",
-        "country": "USA",
         "time": "14:30 CET",
         "impact": "🔴",
+        "is_speech": False,
         "actual": "+72K",
         "forecast": "55K",
         "previous": "-23K",
         "revised": "zrewidowano z -15K",
         "sentiment_badge": "🟢",
-        "sentiment_desc": "Wyższy od prognoz",
     }
     msg = format_macro_alert_message(event, ai_commentary="Dolar umacnia się po lepszym odczycie.")
 
-    assert "## ⚡ ODCZYT MAKROEKONOMICZNY [USD] 🇺🇸" in msg
-    assert "### 🔴 Non-Farm Employment Change • 14:30 CET" in msg
-    assert "• **Odczyt (Aktualny)**: `+72K` 🟢 *(Wyższy od prognoz)*" in msg
-    assert "• **Prognoza (Konsensus)**: `55K`" in msg
-    assert "• **Poprzednia wartość**: `-23K` *(zrewidowano z -15K)*" in msg
-    assert "Dolar umacnia się po lepszym odczycie." in msg
+    assert "## ⚡ ODCZYT MAKROEKONOMICZNY NA ŻYWO" in msg
+    assert "• 🔴 14:30 CET [USD] Non-Farm Employment Change (Akt: +72K 🟢, Progn: 55K, Poprz: -23K (rew. zrewidowano z -15K)) - Dolar umacnia się po lepszym odczycie." in msg
     assert "Live Macro Pulse" in msg
 
 

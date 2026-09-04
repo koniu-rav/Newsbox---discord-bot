@@ -824,53 +824,69 @@ def format_portfolio_message(
     return "\n\n".join(parts)
 
 
+def format_macro_alerts_batch_message(
+    events: List[Dict[str, Any]],
+    impacts: Optional[Dict[str, str]] = None,
+) -> str:
+    """Format batch of real-time published economic events or speeches as a concise Discord markdown message."""
+    if not events:
+        return ""
+
+    impacts = impacts or {}
+    title_header = "## ⚡ ODCZYTY MAKROEKONOMICZNE NA ŻYWO" if len(events) > 1 else "## ⚡ ODCZYT MAKROEKONOMICZNY NA ŻYWO"
+
+    event_lines = []
+    for ev in events:
+        ev_id = ev.get("event_id", "")
+        time_str = ev.get("time", "")
+        currency = ev.get("currency", "USD")
+        impact = ev.get("impact", "🔴")
+        title = ev.get("title", "Publikacja Makro")
+        is_speech = ev.get("is_speech", False)
+
+        comment = impacts.get(ev_id, "").strip()
+
+        if is_speech:
+            if not comment:
+                comment = ev.get("speech_note", "rozpoczął się (uwaga na zmienność na rynku)")
+            event_lines.append(f"• {impact} {time_str} [{currency}] {title} - {clean_markdown_text(comment)}")
+        else:
+            actual = ev.get("actual", "Brak")
+            forecast = ev.get("forecast", "Brak")
+            previous = ev.get("previous", "Brak")
+            revised = ev.get("revised", "")
+            sentiment_badge = ev.get("sentiment_badge", "⚪")
+
+            badge_str = f" {sentiment_badge}" if sentiment_badge in ["🟢", "🔴"] else ""
+            prev_str = f"{previous} (rew. {revised})" if revised else previous
+
+            if not comment:
+                if sentiment_badge == "🟢":
+                    comment = f"Wyższy od prognoz odczyt wspiera {currency}."
+                elif sentiment_badge == "🔴":
+                    comment = f"Niższy od prognoz odczyt wywiera presję na {currency}."
+                else:
+                    comment = "Odczyt neutralny, zgodny z oczekiwaniami rynku."
+
+            event_lines.append(
+                f"• {impact} {time_str} [{currency}] {title} (Akt: {actual}{badge_str}, Progn: {forecast}, Poprz: {prev_str}) - {clean_markdown_text(comment)}"
+            )
+
+    body = "\n".join(event_lines)
+    footer = f"-# {BRAND_FOOTER} • Live Macro Pulse"
+
+    return f"{title_header}\n\n{body}\n\n{footer}"
+
+
 def format_macro_alert_message(
     event: Dict[str, Any],
     ai_commentary: Optional[str] = None,
 ) -> str:
-    """Format real-time published economic event alert as a clean full-width Discord markdown message."""
-    title = event.get("title", "Publikacja Makro")
-    currency = event.get("currency", "USD")
-    flag = event.get("flag", "🌐")
-    country = event.get("country", currency)
-    time_str = event.get("time", "")
-    impact = event.get("impact", "🔴")
-    actual = event.get("actual", "Brak")
-    forecast = event.get("forecast", "Brak")
-    previous = event.get("previous", "Brak")
-    revised = event.get("revised", "")
-    sentiment_badge = event.get("sentiment_badge", "⚪")
-    sentiment_desc = event.get("sentiment_desc", "")
+    """Format single real-time published economic event alert using the unified bullet format."""
+    ev_id = event.get("event_id", "")
+    impacts = {ev_id: ai_commentary} if ai_commentary else None
+    return format_macro_alerts_batch_message([event], impacts=impacts)
 
-    header = f"## ⚡ ODCZYT MAKROEKONOMICZNY [{currency}] {flag}"
-
-    # Previous line with optional revision
-    prev_str = f"`{previous}`"
-    if revised:
-        prev_str += f" *({revised})*"
-
-    # Forecast line
-    fcast_str = f"`{forecast}`"
-
-    # Actual line with deviation badge
-    act_str = f"`{actual}` {sentiment_badge} *({sentiment_desc})*" if sentiment_desc else f"`{actual}`"
-
-    parts = [
-        header,
-        (
-            f"### {impact} {title} • {time_str}\n"
-            f"• **Kraj / Obszar**: {country} ({currency})\n"
-            f"• **Odczyt (Aktualny)**: {act_str}\n"
-            f"• **Prognoza (Konsensus)**: {fcast_str}\n"
-            f"• **Poprzednia wartość**: {prev_str}"
-        ),
-    ]
-
-    if ai_commentary:
-        parts.append(f"### 💡 Wpływ Rynkowy & Interpretacja\n{clean_markdown_text(ai_commentary)}")
-
-    parts.append(f"-# {BRAND_FOOTER} • Live Macro Pulse")
-    return "\n\n".join(parts)
 
 
 def format_accuracy_message(

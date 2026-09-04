@@ -344,6 +344,80 @@ class GeminiService:
         except Exception:
             return fallback_comment
 
+    async def generate_macro_batch_impact(self, events: List[Dict[str, Any]]) -> Dict[str, str]:
+        """Generate concise 1-sentence market impact lines for a batch of newly published macro events or speeches."""
+        impacts: Dict[str, str] = {}
+        if not events:
+            return impacts
+
+        # Build resilient deterministic fallbacks for all events
+        for ev in events:
+            ev_id = ev.get("event_id", "")
+            currency = ev.get("currency", "USD")
+            is_speech = ev.get("is_speech", False)
+            if is_speech:
+                speech_note = ev.get("speech_note", "rozpoczął się (uwaga na zmienność na rynku)")
+                impacts[ev_id] = speech_note
+            else:
+                actual = ev.get("actual", "")
+                badge = ev.get("sentiment_badge", "⚪")
+                if badge == "🟢":
+                    impacts[ev_id] = f"Odczyt wyższy od prognoz — potencjalne wsparcie dla {currency}."
+                elif badge == "🔴":
+                    impacts[ev_id] = f"Odczyt poniżej prognoz — presja spadkowa na {currency}."
+                else:
+                    impacts[ev_id] = f"Odczyt zgodny z konsensusem rynkowym ({actual}), neutralny dla {currency}."
+
+        if not self._client:
+            return impacts
+
+        events_to_analyze = [ev for ev in events if not ev.get("is_speech")]
+        if not events_to_analyze:
+            return impacts
+
+        event_descriptions = []
+        for i, ev in enumerate(events_to_analyze, 1):
+            event_descriptions.append(
+                f"{i}. [{ev.get('currency')}] {ev.get('title')} | Akt: {ev.get('actual')} | Prog: {ev.get('forecast')} | Poprz: {ev.get('previous')} | Odchylenie: {ev.get('sentiment_desc')}"
+            )
+        events_str = "\n".join(event_descriptions)
+
+        prompt = (
+            "Jesteś profesjonalnym traderem makroekonomicznym i analitykiem we.trade.\n"
+            "Właśnie opublikowano serię oficjalnych danych makroekonomicznych:\n"
+            f"{events_str}\n\n"
+            f"Zadanie: Dla KAŻDEGO z powyższych punktów (od 1 do {len(events_to_analyze)}) napisz DOKŁADNIE 1 zwięzłe zdanie (maks. 15-20 słów) "
+            "wyjaśniające bezpośredni wpływ tego wyniku na rynek (walutę, indeksy lub stopy procentowe). "
+            "Odpowiedz w ponumerowanych liniach odpowiadających numeracji, np.:\n"
+            "1. Wyższy odczyt wspiera walutę i oddala perspektywę cięć stóp.\n"
+            "2. Spadek wskaźnika osłabia walutę i napędza oczekiwania na łagodzenie polityki.\n"
+            "Zwróć wyłącznie ponumerowane linie, czysty polski język rynkowy bez wstępów."
+        )
+
+        try:
+            res = await asyncio.wait_for(
+                self._call_gemini(prompt, fallback_msg=""),
+                timeout=7.0,
+            )
+            if res:
+                for line in res.strip().split("\n"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    m = re.match(r"^(\d+)[\.\)]\s*(.+)", line)
+                    if m:
+                        idx = int(m.group(1)) - 1
+                        comment = m.group(2).strip()
+                        if 0 <= idx < len(events_to_analyze):
+                            ev_id = events_to_analyze[idx].get("event_id", "")
+                            if ev_id and comment:
+                                impacts[ev_id] = comment
+        except Exception as e:
+            logger.warning("Batch macro AI commentary failed, using fallback comments: %s", e)
+
+        return impacts
+
+
     async def generate_crypto_summary(self, crypto_headlines: List[Dict[str, Any]]) -> str:
         """Generate a dedicated global cryptocurrency and digital asset summary."""
         if not self._client:

@@ -18,6 +18,7 @@ TRADING_ECONOMICS_URL = "https://tradingeconomics.com/calendar"
 
 WARSAW_TZ = ZoneInfo("Europe/Warsaw")
 NY_TZ = ZoneInfo("America/New_York")
+UTC_TZ = ZoneInfo("UTC")
 
 
 class CalendarService:
@@ -224,13 +225,13 @@ class CalendarService:
                             if country_raw not in curr_map:
                                 continue
 
-                            # Parse time in EDT and convert to Europe/Warsaw
+                            # Parse time in UTC and convert to Europe/Warsaw
                             event_dt = None
                             if time_val:
                                 try:
-                                    t_clean = " ".join(time_val.replace("EST", "").replace("EDT", "").split())
-                                    dt_ny = datetime.strptime(f"{target_date} {t_clean}", "%Y-%m-%d %I:%M %p").replace(tzinfo=NY_TZ)
-                                    event_dt = dt_ny.astimezone(WARSAW_TZ)
+                                    t_clean = " ".join(time_val.replace("EST", "").replace("EDT", "").replace("UTC", "").split())
+                                    dt_utc = datetime.strptime(f"{target_date} {t_clean}", "%Y-%m-%d %I:%M %p").replace(tzinfo=UTC_TZ)
+                                    event_dt = dt_utc.astimezone(WARSAW_TZ)
                                 except Exception:
                                     pass
 
@@ -372,12 +373,26 @@ class CalendarService:
 
         high_keywords = [
             "CPI", "INFLATION", "INTEREST RATE", "FED", "FOMC", "ECB", "NFP", "NON-FARM",
-            "GDP", "PCE", "PMI", "UNEMPLOYMENT", "RATE DECISION", "PAYROLLS", "RETAIL SALES",
-            "SPEECH", "PRESS CONFERENCE"
+            "NON FARM", "EMPLOYMENT CHANGE", "GDP", "PCE", "PMI", "UNEMPLOYMENT RATE",
+            "RATE DECISION", "RETAIL SALES"
         ]
         med_keywords = [
-            "PPI", "TRADE BALANCE", "CONSUMER CONFIDENCE", "HOUSING", "ORDERS", "INVENTORIES",
-            "BUDGET", "CLAIMS", "BALANCE OF TRADE", "BEIGE BOOK"
+            "PPI", "TRADE BALANCE", "CONSUMER CONFIDENCE", "DURABLE GOODS", "INVENTORIES",
+            "BUDGET", "INITIAL JOBLESS CLAIMS", "JOBLESS CLAIMS", "BALANCE OF TRADE", "BEIGE BOOK",
+            "AVERAGE HOURLY EARNINGS"
+        ]
+
+        unwanted_keywords = [
+            "AUCTION",
+            "FACTORY ORDERS",
+            "GOVERNMENT PAYROLLS",
+            "MANUFACTURING PAYROLLS",
+            "NONFARM PAYROLLS PRIVATE",
+            "U-6 UNEMPLOYMENT",
+            "FULL TIME EMPLOYMENT",
+            "PART TIME EMPLOYMENT",
+            "AVERAGE WEEKLY HOURS",
+            "CAPACITY UTILIZATION",
         ]
 
         try:
@@ -414,8 +429,79 @@ class CalendarService:
                         event_raw = " ".join(cells[4].text.split()).replace("®", "").strip()
                         ev_upper = event_raw.upper()
 
-                        # Exclude routine treasury bond/bill auctions
-                        if "AUCTION" in ev_upper:
+                        # Exclude low-impact, noise, sub-breakdowns, routine auctions
+                        if any(u in ev_upper for u in unwanted_keywords):
+                            continue
+
+                        # Parse time in UTC -> Europe/Warsaw
+                        time_val = " ".join(cells[0].text.split())
+                        event_dt = now
+                        if time_val:
+                            try:
+                                t_clean = " ".join(time_val.replace("EST", "").replace("EDT", "").replace("UTC", "").split())
+                                dt_utc = datetime.strptime(f"{today_str} {t_clean}", "%Y-%m-%d %I:%M %p").replace(tzinfo=UTC_TZ)
+                                event_dt = dt_utc.astimezone(WARSAW_TZ)
+                            except Exception:
+                                pass
+
+                        # Check if this is a speech / press conference
+                        is_speech = any(k in ev_upper for k in ["SPEECH", "SPEAKS", "PRESS CONFERENCE"])
+                        if is_speech:
+                            high_speech_speakers = [
+                                "BOE GOV", "BAILEY", "FED CHAIR", "POWELL", "FOMC PRESS CONFERENCE",
+                                "ECB PRESIDENT", "LAGARDE", "ECB PRESS CONFERENCE", "BOJ GOV", "UEDA",
+                                "BOC GOV", "MACKLEM", "SNB CHAIRMAN", "RBA GOV"
+                            ]
+                            med_speech_speakers = [
+                                "FED", "ECB", "BOE", "FOMC", "BOC", "BOJ", "RBA", "SNB"
+                            ]
+                            if any(k in ev_upper for k in high_speech_speakers):
+                                impact = "🔴"
+                                weight = 1
+                            elif any(k in ev_upper for k in med_speech_speakers):
+                                impact = "🟡"
+                                weight = 2
+                            else:
+                                continue  # Skip non-central-bank speeches / minor politicians
+
+                            # Speeches trigger when scheduled time has arrived (within last 25 mins)
+                            if now < event_dt:
+                                continue
+
+                            data_id = r.get("data-id")
+                            event_id = f"te_speech_{data_id}" if data_id else f"te_speech_{today_str}_{currency}_{event_raw.replace(' ', '_')}"
+
+                            speaker_short = "Bank Centralny"
+                            if "BAILEY" in ev_upper:
+                                speaker_short = "Bailey"
+                            elif "POWELL" in ev_upper:
+                                speaker_short = "Powell"
+                            elif "LAGARDE" in ev_upper:
+                                speaker_short = "Lagarde"
+                            elif "UEDA" in ev_upper:
+                                speaker_short = "Ueda"
+                            elif "MACKLEM" in ev_upper:
+                                speaker_short = "Macklem"
+
+                            published_events.append({
+                                "event_id": event_id,
+                                "title": event_raw,
+                                "currency": currency,
+                                "country": country_name_map.get(currency, country_raw),
+                                "flag": flag_map.get(currency, "🌐"),
+                                "impact": impact,
+                                "weight": weight,
+                                "is_speech": True,
+                                "actual": "",
+                                "forecast": "",
+                                "previous": "",
+                                "revised": "",
+                                "time": event_dt.strftime("%H:%M CET"),
+                                "dt": event_dt,
+                                "speech_note": f"rozpoczął się ({speaker_short} przemawia, uwaga na podwyższoną zmienność na rynku)",
+                                "sentiment_badge": "⚪",
+                                "sentiment_desc": "",
+                            })
                             continue
 
                         # Check impact: strictly 🔴 High (1) and 🟡 Medium (2)
@@ -426,7 +512,7 @@ class CalendarService:
                             impact = "🟡"
                             weight = 2
                         else:
-                            continue  # Skip low-impact events
+                            continue  # Skip low-impact events (⚪)
 
                         # Check actual value (cell 5 or span id="actual")
                         actual_span = r.find("span", {"id": "actual"})
@@ -439,17 +525,6 @@ class CalendarService:
                         actual_clean = " ".join(actual_val.replace("®", "").split())
                         if not actual_clean:
                             continue
-
-                        # Parse time in EDT -> Europe/Warsaw
-                        time_val = " ".join(cells[0].text.split())
-                        event_dt = now
-                        if time_val:
-                            try:
-                                t_clean = " ".join(time_val.replace("EST", "").replace("EDT", "").split())
-                                dt_ny = datetime.strptime(f"{today_str} {t_clean}", "%Y-%m-%d %I:%M %p").replace(tzinfo=NY_TZ)
-                                event_dt = dt_ny.astimezone(WARSAW_TZ)
-                            except Exception:
-                                pass
 
                         # Previous and forecast
                         prev_span = r.find("span", {"id": "previous"})
@@ -490,6 +565,7 @@ class CalendarService:
                             "flag": flag_map.get(currency, "🌐"),
                             "impact": impact,
                             "weight": weight,
+                            "is_speech": False,
                             "actual": actual_clean,
                             "forecast": forecast_clean or "Brak",
                             "previous": previous_clean or "Brak",
@@ -505,4 +581,5 @@ class CalendarService:
         except Exception as e:
             logger.warning("Error while fetching live published macro events: %s", e)
             return []
+
 

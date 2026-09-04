@@ -116,8 +116,52 @@ async def test_gemini_service_generate_macro_alert_impact():
 
 
 @pytest.mark.asyncio
+async def test_gemini_service_generate_macro_batch_impact():
+    """Test generating short market impact lines for a batch of events."""
+    service = GeminiService(api_key="test-key", prompts_dir="prompts")
+    with patch.object(service, "_call_gemini", new_callable=AsyncMock) as mock_call:
+        mock_call.return_value = "1. Wyższy odczyt z rynku pracy wspiera walutę CAD.\n2. Lepszy odczyt NFP umacnia dolara."
+        events = [
+            {
+                "event_id": "te_cad_1",
+                "title": "Employment Change",
+                "currency": "CAD",
+                "actual": "44.0K",
+                "forecast": "15.1K",
+                "previous": "75.1K",
+                "sentiment_desc": "Wyższy od prognoz",
+                "is_speech": False,
+            },
+            {
+                "event_id": "te_usd_1",
+                "title": "Non Farm Payrolls",
+                "currency": "USD",
+                "actual": "162K",
+                "forecast": "56K",
+                "previous": "21K",
+                "sentiment_desc": "Wyższy od prognoz",
+                "is_speech": False,
+            },
+            {
+                "event_id": "te_gbp_speech",
+                "title": "BOE Gov Bailey Speaks",
+                "currency": "GBP",
+                "is_speech": True,
+                "speech_note": "rozpoczął się (Bailey mówi, dajmy znać ze event sie rozpoczął)",
+            },
+        ]
+        impacts = await service.generate_macro_batch_impact(events)
+        assert "te_cad_1" in impacts
+        assert "te_usd_1" in impacts
+        assert "te_gbp_speech" in impacts
+        assert "wspiera walutę CAD" in impacts["te_cad_1"]
+        assert "umacnia dolara" in impacts["te_usd_1"]
+        assert "Bailey mówi" in impacts["te_gbp_speech"]
+
+
+@pytest.mark.asyncio
 async def test_calendar_service_fetch_live_published_macro_events():
-    """Test parsing and filtering of live published economic events."""
+    """Test parsing, speech detection, and filtering of live economic events."""
     from zoneinfo import ZoneInfo
     from datetime import datetime
     WARSAW_TZ = ZoneInfo("Europe/Warsaw")
@@ -126,7 +170,7 @@ async def test_calendar_service_fetch_live_published_macro_events():
     mock_html = f"""
     <table id="calendar">
         <tr data-id="101" data-country="united states">
-            <td class="{today_str}">02:30 PM EDT</td>
+            <td class="{today_str}">12:30 PM</td>
             <td>US</td>
             <td></td>
             <td>US</td>
@@ -136,7 +180,7 @@ async def test_calendar_service_fetch_live_published_macro_events():
             <td><span id="consensus">55K</span></td>
         </tr>
         <tr data-id="102" data-country="united states">
-            <td class="{today_str}">02:30 PM EDT</td>
+            <td class="{today_str}">12:30 PM</td>
             <td>US</td>
             <td></td>
             <td>US</td>
@@ -146,13 +190,23 @@ async def test_calendar_service_fetch_live_published_macro_events():
             <td><span id="consensus">4.3%</span></td>
         </tr>
         <tr data-id="103" data-country="germany">
-            <td class="{today_str}">08:00 AM EDT</td>
+            <td class="{today_str}">08:00 AM</td>
             <td>DE</td>
             <td></td>
             <td>DE</td>
-            <td>Minor Economic Survey</td>
-            <td><span id="actual">2.1%</span></td>
-            <td><span id="previous">2.0%</span></td>
+            <td>German Factory Orders MoM</td>
+            <td><span id="actual">0.3%</span></td>
+            <td><span id="previous">3.1%</span></td>
+            <td><span id="consensus"></span></td>
+        </tr>
+        <tr data-id="104" data-country="united kingdom">
+            <td class="{today_str}">08:50 AM</td>
+            <td>GB</td>
+            <td></td>
+            <td>GB</td>
+            <td>BOE Gov Bailey Speaks</td>
+            <td><span id="actual"></span></td>
+            <td><span id="previous"></span></td>
             <td><span id="consensus"></span></td>
         </tr>
     </table>
@@ -178,18 +232,27 @@ async def test_calendar_service_fetch_live_published_macro_events():
     service = CalendarService()
     with patch("aiohttp.ClientSession", return_value=MockSession()):
         events = await service.fetch_live_published_macro_events()
-        # Event 101 (NFP) is published and 🔴 High impact -> should be included
-        # Event 102 (Unemployment) has empty actual -> should be excluded
-        # Event 103 (Bill auction) is low impact ⚪ -> should be excluded
-        assert len(events) == 1
-        ev = events[0]
-        assert ev["event_id"] == "te_101"
-        assert ev["currency"] == "USD"
-        assert ev["actual"] == "72K"
-        assert ev["forecast"] == "55K"
-        assert ev["previous"] == "-23K"
-        assert ev["impact"] == "🔴"
-        assert ev["sentiment_badge"] == "🟢"
+        # Event 101 (NFP) is published and 🔴 High impact -> included
+        # Event 102 (Unemployment) has empty actual -> excluded
+        # Event 103 (German Factory Orders) is excluded (unwanted noise)
+        # Event 104 (Bailey Speech) is a 🔴 speech whose time (08:50 UTC = 10:50 CET) has passed -> included as speech
+        event_ids = [e["event_id"] for e in events]
+        assert "te_101" in event_ids
+        assert "te_102" not in event_ids
+        assert "te_103" not in event_ids
+        assert "te_speech_104" in event_ids
+
+        nfp = next(e for e in events if e["event_id"] == "te_101")
+        assert nfp["time"] == "14:30 CET"
+        assert nfp["actual"] == "72K"
+        assert nfp["impact"] == "🔴"
+
+        speech = next(e for e in events if e["event_id"] == "te_speech_104")
+        assert speech["is_speech"] is True
+        assert speech["time"] == "10:50 CET"
+        assert speech["impact"] == "🔴"
+        assert "Bailey" in speech["speech_note"]
+
 
 
 def test_state_manager_macro_events():
