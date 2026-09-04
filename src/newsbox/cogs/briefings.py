@@ -414,19 +414,31 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
         return dispatched_count
 
     @commands.command(name="macro_alerts", aliases=["alerts", "odczyty", "dane"])
-    async def macro_alerts_command(self, ctx: commands.Context) -> None:
-        """Sprawdź ostatnio opublikowane odczyty makroekonomiczne z dzisiaj lub wymuś sprawdzenie."""
+    async def macro_alerts_command(self, ctx: commands.Context, limit: Optional[str] = "5") -> None:
+        """Sprawdź ostatnio opublikowane odczyty makroekonomiczne z dzisiaj lub wymuś sprawdzenie.
+
+        Użycie:
+        - `!odczyty` - wyświetla 5 ostatnich odczytów
+        - `!odczyty 10` - wyświetla 10 ostatnich odczytów
+        """
+        try:
+            n = int(limit) if limit and limit.isdigit() else 5
+            n = max(1, min(n, 15))
+        except Exception:
+            n = 5
+
         async with ctx.typing():
             dispatched = await self.check_and_dispatch_macro_alerts(ctx.channel)
             if dispatched == 0:
                 events = await self.calendar_service.fetch_live_published_macro_events()
                 if events:
-                    recent = events[-5:]
+                    recent = events[-n:]
                     impacts = await self.gemini_service.generate_macro_batch_impact(recent)
                     msg_text = format_macro_alerts_batch_message(recent, impacts=impacts)
-                    await send_full_message(ctx.channel, f"ℹ️ *Brak nowych odczytów w tej minucie. Ostatnie odczyty dzisiaj:*\n\n{msg_text}")
+                    await send_full_message(ctx.channel, f"ℹ️ *Brak nowych odczytów w tej minucie. Ostatnie {len(recent)} odczytów z dzisiaj:*\n\n{msg_text}")
                 else:
                     await ctx.send("ℹ️ Brak opublikowanych odczytów o wadze 🔴 lub 🟡 w dniu dzisiejszym.")
+
 
     @commands.command(name="briefing", aliases=["macro", "morning", "poranek"])
     async def briefing_command(self, ctx: commands.Context, target: Optional[str] = None) -> None:
