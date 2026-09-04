@@ -26,4 +26,9 @@ jobs:
             fi
             echo "Working directory: $(pwd)"
             git pull origin main
+            if [ -f .env ]; then
+              sed -i 's/GEMINI_MODEL=gemini-3.5-flash-lite/GEMINI_MODEL=gemini-3.7-flash/' .env
+              sed -i 's/GEMINI_MODEL=gemini-1.5-flash/GEMINI_MODEL=gemini-3.7-flash/' .env
+              sed -i 's/GEMINI_MODEL=gemini-2.0-flash/GEMINI_MODEL=gemini-3.7-flash/' .env
+            fi
             sudo docker compose up -d --build

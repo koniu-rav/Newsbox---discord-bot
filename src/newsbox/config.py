@@ -103,7 +103,7 @@ try:
 
         # Google Gemini AI Configuration
         gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
-        gemini_model: str = Field(default="gemini-1.5-flash", alias="GEMINI_MODEL")
+        gemini_model: str = Field(default="gemini-3.7-flash", alias="GEMINI_MODEL")
         prompts_dir: str = Field(default="prompts", alias="PROMPTS_DIR")
 
         # Configurable Asset Tickers
@@ -215,7 +215,7 @@ except ImportError:
 
             # Gemini & Prompts
             self.gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
-            self.gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            self.gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
             self.prompts_dir: str = os.getenv("PROMPTS_DIR", "prompts")
 
             # Tickers & Portfolio

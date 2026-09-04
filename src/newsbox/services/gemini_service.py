@@ -528,30 +528,44 @@ class GeminiService:
         )
 
     async def _call_gemini(self, prompt: str, fallback_msg: str) -> str:
-        """Async execution of Gemini text generation."""
-        try:
-            response = await asyncio.to_thread(
-                self._client.models.generate_content,
-                model=self.model_name,
-                contents=prompt,
-            )
-            if response:
-                if hasattr(response, "text") and response.text:
-                    self.last_error = None
-                    return response.text.strip()
-                if hasattr(response, "candidates") and response.candidates:
-                    parts_text = []
-                    for c in response.candidates:
-                        if hasattr(c, "content") and hasattr(c.content, "parts") and c.content.parts:
-                            for p in c.content.parts:
-                                if hasattr(p, "text") and p.text:
-                                    parts_text.append(p.text)
-                    if parts_text:
+        """Async execution of Gemini text generation with multi-model fallback resilience."""
+        candidates = [self.model_name]
+        for fb in ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.6-flash"]:
+            if fb not in candidates:
+                candidates.append(fb)
+
+        last_error_details = None
+        for model in candidates:
+            try:
+                response = await asyncio.to_thread(
+                    self._client.models.generate_content,
+                    model=model,
+                    contents=prompt,
+                )
+                if response:
+                    text_result = None
+                    if hasattr(response, "text") and response.text:
+                        text_result = response.text.strip()
+                    elif hasattr(response, "candidates") and response.candidates:
+                        parts_text = []
+                        for c in response.candidates:
+                            if hasattr(c, "content") and hasattr(c.content, "parts") and c.content.parts:
+                                for p in c.content.parts:
+                                    if hasattr(p, "text") and p.text:
+                                        parts_text.append(p.text)
+                        if parts_text:
+                            text_result = "".join(parts_text).strip()
+
+                    if text_result:
                         self.last_error = None
-                        return "".join(parts_text).strip()
-            self.last_error = "Gemini API zwróciło pustą odpowiedź"
-            return fallback_msg
-        except Exception as e:
-            self.last_error = f"Błąd Gemini API ({type(e).__name__}): {e}"
-            logger.error("Gemini API call failed: %s", e)
-            return fallback_msg
+                        return text_result
+
+                logger.warning("Gemini model %s returned empty response; trying fallback...", model)
+            except Exception as e:
+                last_error_details = f"Błąd Gemini API ({type(e).__name__}, model={model}): {e}"
+                logger.warning("Gemini model %s failed: %s. Trying next candidate model...", model, e)
+                continue
+
+        self.last_error = last_error_details or "Wszystkie modele Gemini zwróciły błąd lub pustą odpowiedź"
+        logger.error("All Gemini candidate models failed: %s", self.last_error)
+        return fallback_msg

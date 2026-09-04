@@ -72,3 +72,27 @@ async def test_gemini_service_session_advisory_filters_macro_events():
         assert "Minor Survey" not in prompt_arg
         assert "Low Impact Stat" not in prompt_arg
 
+
+@pytest.mark.asyncio
+async def test_gemini_service_model_fallback_on_error():
+    """Test that _call_gemini tries candidate fallback models when primary model fails."""
+    from unittest.mock import MagicMock
+    service = GeminiService(api_key="test-key", model_name="failing-model", prompts_dir="prompts")
+    mock_client = MagicMock()
+    service._client = mock_client
+
+    class MockResponse:
+        text = "Odpowiedź z modelu zapasowego"
+        candidates = []
+
+    # First call (failing-model) raises Exception; second call (fallback candidate) succeeds
+    mock_client.models.generate_content.side_effect = [
+        Exception("503 UNAVAILABLE"),
+        MockResponse(),
+    ]
+
+    result = await service._call_gemini("test prompt", fallback_msg="BŁĄD")
+    assert result == "Odpowiedź z modelu zapasowego"
+    assert mock_client.models.generate_content.call_count == 2
+
+
