@@ -50,6 +50,37 @@ def create_weekly_outlook_embed(
     return embed
 
 
+def create_overnight_summary_embed(
+    date_str: str,
+    market_data: Dict[str, Any],
+    summary_text: str,
+) -> discord.Embed:
+    """Build the 06:00 AM Overnight Digest embed."""
+    embed = discord.Embed(
+        title=f"🌙 Podsumowanie Nocy • Raport Poranny 06:00 — {date_str}",
+        description=truncate(summary_text, MAX_DESCRIPTION_LENGTH),
+        color=0x2C3E50,  # Midnight Navy Blue
+        timestamp=datetime.now(timezone.utc) if "timezone" in globals() else datetime.utcnow(),
+    )
+
+    market_lines = []
+    for symbol, info in market_data.items():
+        price = info.get("price", "N/A")
+        change = info.get("change_pct", "0.00%")
+        direction = info.get("direction", "⚪")
+        market_lines.append(f"**{symbol}**: `{price}` ({direction} {change})")
+
+    if market_lines:
+        embed.add_field(
+            name="📊 Notowania Sesji Azjatyckiej & Futures (06:00 CET)",
+            value=truncate("\n".join(market_lines), MAX_FIELD_LENGTH),
+            inline=False,
+        )
+
+    embed.set_footer(text=BRAND_FOOTER)
+    return embed
+
+
 def create_session_advisory_embed(
     session_key: str,
     date_str: str,
@@ -644,6 +675,34 @@ def format_weekly_outlook_message(
     if market_lines:
         parts.append(
             "### 📊 Notowania Otwarcia Tygodnia (FX • Indeksy • Krypto • Surowce)\n"
+            + "\n".join(market_lines)
+        )
+
+    parts.append(f"-# {BRAND_FOOTER}")
+    return "\n\n".join(parts)
+
+
+def format_overnight_summary_message(
+    date_str: str,
+    market_data: Dict[str, Any],
+    summary_text: str,
+) -> str:
+    """Format 06:00 AM Overnight Digest as a clean full-width Discord markdown message."""
+    parts = [f"## 🌙 Podsumowanie Nocy • Raport Poranny 06:00 — {date_str}"]
+
+    if summary_text:
+        parts.append(clean_markdown_text(summary_text))
+
+    market_lines = []
+    for symbol, info in market_data.items():
+        price = info.get("price", "N/A")
+        change = info.get("change_pct", "0.00%")
+        direction = info.get("direction", "⚪")
+        market_lines.append(f"• **{symbol}**: `{price}` ({direction} {change})")
+
+    if market_lines:
+        parts.append(
+            "### 📊 Notowania Sesji Azjatyckiej & Futures (06:00 CET)\n"
             + "\n".join(market_lines)
         )
 

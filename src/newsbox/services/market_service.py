@@ -43,6 +43,11 @@ class MarketService:
         """Resolved active tickers dictionary."""
         return self._custom_tickers or self.settings.tickers
 
+    @staticmethod
+    def resolve_ticker(symbol: str) -> str:
+        """Normalize user input symbols like 'MCD.US', 'SAP.DE', 'CDR.WA', 'ETH' into Yahoo Finance format."""
+        return resolve_ticker(symbol)
+
     async def fetch_market_snapshot(self) -> Dict[str, Dict[str, Any]]:
         """Fetch quotes for all configured macro tickers asynchronously."""
         try:

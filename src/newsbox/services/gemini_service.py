@@ -155,32 +155,7 @@ class GeminiService:
         news_str = "\n".join(news_lines) if news_lines else "Brak świeżych nagłówków"
 
         if not self._client:
-            if s_clean == "london":
-                return (
-                    "🧭 **SENTYMENT SESJI EUROPEJSKIEJ (09:00 CET)**: Otwarcie w klimacie Risk-On.\n\n"
-                    "🇩🇪 **PLAN NA DAX**: Byczy sentyment na otwarciu kasowym. Cel: 18,480 pkt.\n"
-                    "💱 **FX MAJORS (EUR/USD, GBP/USD)**: EUR/USD broni wsparcia 1.0820 przed popołudniem.\n\n"
-                    "🎯 **REKOMENDACJE**:\n"
-                    "- 🟢 **CO HANDLOWAĆ**: DAX Long po otwarciu Frankfurtu (09:00-09:45).\n"
-                    "- ⛔ **CZEGO UNIKAĆ**: Pozycji długoterminowych na EUR/USD przed danymi z USA o 14:30."
-                )
-            elif s_clean == "newyork":
-                return (
-                    "🇺🇸 **WALL STREET PRE-MARKET**: Kontrakty na S&P 500 i Nasdaq w lekkim plusie przed 15:30 CET.\n\n"
-                    "📊 **DANE Z USA (14:30 / 16:00)**: Rynek wyczekuje na odczyty z rynku pracy i ISM.\n"
-                    "🪙 **KRYPTO & SUROWCE**: Złoto stabilne przy 2500$, BTC konsoliduje.\n\n"
-                    "🎯 **REKOMENDACJE**:\n"
-                    "- 🟢 **CO HANDLOWAĆ**: Nasdaq / S&P 500 w pierwszym impulsie po otwarciu kasowym.\n"
-                    "- ⛔ **CZEGO UNIKAĆ**: Handlu bezpośrednio w sekundzie publikacji odczytu makro o 14:30."
-                )
-            else:  # asia
-                return (
-                    "🇯🇵 **OTWARCIE SESJI AZJATYCKIEJ**: Spokojny handel po zamknięciu w USA.\n\n"
-                    "🦘 **PARY ANTYPODÓW & CHINY**: USD/JPY stabilizuje się wokół 154.00, AUD/USD wyczekuje na dane z Chin.\n\n"
-                    "🎯 **REKOMENDACJE**:\n"
-                    "- 🟢 **CO HANDLOWAĆ**: USD/JPY oraz Nikkei w oknie 01:00-03:00 CET.\n"
-                    "- ⛔ **CZEGO UNIKAĆ**: Par walutowych z rynków wschodzących i krzyżówek EUR z uwagi na nocne spready."
-                )
+            return self._get_session_fallback(s_clean)
 
         template = self.get_prompt_template(
             template_name,
@@ -194,8 +169,38 @@ class GeminiService:
 
         return await self._call_gemini(
             prompt,
-            fallback_msg=f"Briefing sesji {s_clean.upper()}: Rynki bazowe w oczekiwaniu na otwarcie handlu.",
+            fallback_msg=self._get_session_fallback(s_clean),
         )
+
+    def _get_session_fallback(self, session_key: str) -> str:
+        """Provide detailed structured fallback advisory if Gemini API is unreachable."""
+        s_clean = session_key.lower().strip()
+        if s_clean == "london":
+            return (
+                "🧭 **SENTYMENT SESJI EUROPEJSKIEJ (09:00 CET)**: Otwarcie w klimacie Risk-On.\n\n"
+                "🇩🇪 **PLAN NA DAX**: Byczy sentyment na otwarciu kasowym. Cel: 18,480 pkt.\n"
+                "💱 **FX MAJORS (EUR/USD, GBP/USD)**: EUR/USD broni wsparcia 1.0820 przed popołudniem.\n\n"
+                "🎯 **REKOMENDACJE**:\n"
+                "- 🟢 **CO HANDLOWAĆ**: DAX Long po otwarciu Frankfurtu (09:00-09:45).\n"
+                "- ⛔ **CZEGO UNIKAĆ**: Pozycji długoterminowych na EUR/USD przed danymi z USA o 14:30."
+            )
+        elif s_clean == "newyork":
+            return (
+                "🇺🇸 **WALL STREET PRE-MARKET**: Kontrakty na S&P 500 i Nasdaq w lekkim plusie przed 15:30 CET.\n\n"
+                "📊 **DANE Z USA (14:30 / 16:00)**: Rynek wyczekuje na odczyty z rynku pracy i ISM.\n"
+                "🪙 **KRYPTO & SUROWCE**: Złoto stabilne przy 2500$, BTC konsoliduje.\n\n"
+                "🎯 **REKOMENDACJE**:\n"
+                "- 🟢 **CO HANDLOWAĆ**: Nasdaq / S&P 500 w pierwszym impulsie po otwarciu kasowym.\n"
+                "- ⛔ **CZEGO UNIKAĆ**: Handlu bezpośrednio w sekundzie publikacji odczytu makro o 14:30."
+            )
+        else:  # asia
+            return (
+                "🇯🇵 **OTWARCIE SESJI AZJATYCKIEJ**: Spokojny handel po zamknięciu w USA.\n\n"
+                "🦘 **PARY ANTYPODÓW & CHINY**: USD/JPY stabilizuje się wokół 154.00, AUD/USD wyczekuje na dane z Chin.\n\n"
+                "🎯 **REKOMENDACJE**:\n"
+                "- 🟢 **CO HANDLOWAĆ**: USD/JPY oraz Nikkei w oknie 01:00-03:00 CET.\n"
+                "- ⛔ **CZEGO UNIKAĆ**: Par walutowych z rynków wschodzących i krzyżówek EUR z uwagi na nocne spready."
+            )
 
     async def generate_trader_advisory(
         self,
@@ -640,7 +645,7 @@ class GeminiService:
     async def _call_gemini(self, prompt: str, fallback_msg: str) -> str:
         """Async execution of Gemini text generation with multi-model fallback resilience."""
         candidates = [self.model_name]
-        for fb in ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.6-flash"]:
+        for fb in ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-lite-latest", "gemini-3.5-flash-lite"]:
             if fb not in candidates:
                 candidates.append(fb)
 

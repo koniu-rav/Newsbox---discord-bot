@@ -107,7 +107,7 @@ try:
 
         # Google Gemini AI Configuration
         gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
-        gemini_model: str = Field(default="gemini-3.7-flash", alias="GEMINI_MODEL")
+        gemini_model: str = Field(default="gemini-3.6-flash", alias="GEMINI_MODEL")
         prompts_dir: str = Field(default="prompts", alias="PROMPTS_DIR")
 
         # Configurable Asset Tickers

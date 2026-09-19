@@ -273,4 +273,37 @@ def test_state_manager_macro_events():
         assert not sm2.is_macro_event_published("te_456")
 
 
+def test_market_service_resolve_ticker():
+    """Verify MarketService.resolve_ticker static and instance methods."""
+    from newsbox.services.market_service import MarketService, resolve_ticker
+
+    assert MarketService.resolve_ticker("TSLA") == "TSLA"
+    assert MarketService.resolve_ticker("mcd.us") == "MCD"
+    assert MarketService.resolve_ticker("cdr,wa") == "CDR.WA"
+    assert MarketService.resolve_ticker("btc") == "BTC-USD"
+    assert MarketService.resolve_ticker("eth") == "ETH-USD"
+
+    ms = MarketService()
+    assert ms.resolve_ticker("lnd") == "LND"
+    assert ms.resolve_ticker("nvda.us") == "NVDA"
+
+
+@pytest.mark.asyncio
+async def test_gemini_service_session_fallback():
+    """Verify detailed structured fallback is returned when Gemini API is unavailable."""
+    service = GeminiService(api_key="", prompts_dir="prompts")
+    london_fallback = await service.generate_session_advisory("london", {}, [], [])
+    assert "SENTYMENT SESJI EUROPEJSKIEJ" in london_fallback
+    assert "PLAN NA DAX" in london_fallback
+    assert "REKOMENDACJE" in london_fallback
+
+    ny_fallback = await service.generate_session_advisory("newyork", {}, [], [])
+    assert "WALL STREET PRE-MARKET" in ny_fallback
+    assert "REKOMENDACJE" in ny_fallback
+
+    asia_fallback = await service.generate_session_advisory("asia", {}, [], [])
+    assert "OTWARCIE SESJI AZJATYCKIEJ" in asia_fallback
+
+
+
 

@@ -464,11 +464,11 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
             t_lower = target.lower().strip()
             if t_lower in ["weekly", "tydzien", "week", "plan"]:
                 await self.compile_and_send_weekly_outlook(ctx.channel)
-            elif t_lower in ["london", "londyn", "eu", "europa"]:
+            elif t_lower in ["london", "londyn", "eu", "europa", "lnd", "ldn"]:
                 await self.compile_and_send_session_briefing(ctx.channel, session_key="london")
-            elif t_lower in ["ny", "usa", "us", "nowyjork", "wallstreet"]:
+            elif t_lower in ["ny", "usa", "us", "nowyjork", "wallstreet", "newyork", "nyc"]:
                 await self.compile_and_send_session_briefing(ctx.channel, session_key="newyork")
-            elif t_lower in ["asia", "azja", "tokyo", "tokio"]:
+            elif t_lower in ["asia", "azja", "tokyo", "tokio", "asx", "sydney"]:
                 await self.compile_and_send_session_briefing(ctx.channel, session_key="asia")
             else:
                 # Target is an asset ticker
@@ -480,19 +480,19 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
         async with ctx.typing():
             await self.compile_and_send_weekly_outlook(ctx.channel)
 
-    @commands.command(name="london", aliases=["londyn"])
+    @commands.command(name="london", aliases=["londyn", "lnd", "ldn"])
     async def london_command(self, ctx: commands.Context) -> None:
         """Szybki skrót: Briefing Sesji Londyńskiej (Europa)."""
         async with ctx.typing():
             await self.compile_and_send_session_briefing(ctx.channel, session_key="london")
 
-    @commands.command(name="ny", aliases=["nowyjork"])
+    @commands.command(name="ny", aliases=["nowyjork", "newyork", "usa", "wallstreet", "nyc"])
     async def ny_command(self, ctx: commands.Context) -> None:
         """Szybki skrót: Briefing Sesji Nowojorskiej (Wall Street)."""
         async with ctx.typing():
             await self.compile_and_send_session_briefing(ctx.channel, session_key="newyork")
 
-    @commands.command(name="asia", aliases=["azja"])
+    @commands.command(name="asia", aliases=["azja", "tokyo", "tokio", "asx", "sydney"])
     async def asia_command(self, ctx: commands.Context) -> None:
         """Szybki skrót: Briefing Sesji Azjatyckiej (Tokio / Sydney)."""
         async with ctx.typing():
