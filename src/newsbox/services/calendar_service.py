@@ -323,9 +323,9 @@ class CalendarService:
             {"time": "09:00 CET", "currency": "EUR", "title": "Otwarcie sesji europejskiej i publikacje PMI", "impact": "🟡"}
         ]
 
-    async def fetch_live_published_macro_events(self) -> List[Dict[str, Any]]:
+    async def fetch_live_published_macro_events(self, check_time: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Fetch today's high and medium impact economic events that have already been published (have Actual value)."""
-        now = datetime.now(WARSAW_TZ)
+        now = check_time or datetime.now(WARSAW_TZ)
         today_str = now.strftime("%Y-%m-%d")
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

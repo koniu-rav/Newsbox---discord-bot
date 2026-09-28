@@ -265,6 +265,63 @@ def test_format_accuracy_message():
     assert "Trafny kierunek na DAX" in msg
 
 
+def test_format_weekly_accuracy_message():
+    """Test Saturday Weekly Accuracy Report formatting with daily grouping, scoring, and conclusions."""
+    from newsbox.utils.embeds import format_weekly_accuracy_message
+
+    stats = {
+        "global": {"total": 20, "successful": 16, "neutral": 2, "failed": 2, "win_rate": 80.0, "average_score": 79.5},
+        "weekly": {"week_number": "2026-W39", "total": 6, "successful": 5, "neutral": 1, "failed": 0, "win_rate": 83.3, "average_score": 81.0},
+        "sessions": {
+            "london": {"total": 3, "successful": 3, "win_rate": 100.0, "average_score": 86.0},
+            "newyork": {"total": 3, "successful": 2, "win_rate": 66.7, "average_score": 76.0},
+            "asia": {"total": 0, "successful": 0, "win_rate": 0.0, "average_score": 0.0},
+        },
+    }
+
+    evals = [
+        # Monday
+        {"session": "london", "date": "2026-09-21", "score": 85, "breakdown": "Trafny short na DAX.", "conclusions": "Risk-off na otwarciu."},
+        {"session": "newyork", "date": "2026-09-21", "score": 80, "breakdown": "Spadki EUR/USD zrealizowane.", "conclusions": "DXY zdominował sesję."},
+        # Wednesday
+        {"session": "london", "date": "2026-09-23", "score": 88, "breakdown": "EUR/USD perfekcyjny short.", "conclusions": "Czysta realizacja stref."},
+        {"session": "newyork", "date": "2026-09-23", "score": 90, "breakdown": "USD/JPY byczy rajd powyżej 158.00.", "conclusions": "Unikanie łapania dołków na złocie."},
+        # Friday
+        {"session": "london", "date": "2026-09-25", "score": 42, "breakdown": "Short na DAX nietrafiony.", "conclusions": "Rynek silniejszy niż model zakładał."},
+        {"session": "newyork", "date": "2026-09-25", "score": 75, "breakdown": "EUR/USD i GOLD zrealizowane poprawnie.", "conclusions": "Dobre zarządzanie pozycją w piątek."},
+    ]
+
+    daily_digests = {
+        "2026-09-23": {
+            "summary": "Perfekcyjna realizacja pozycji krótkiej na EUR/USD oraz byczego rajdu na USD/JPY.",
+            "conclusions": "Silny dolar wyznaczył kierunek sesji; unikanie łapania dołków na złocie uchroniło kapitał.",
+        }
+    }
+
+    msg = format_weekly_accuracy_message(
+        stats=stats,
+        week_evaluations=evals,
+        daily_digests=daily_digests,
+        conclusions="• Skuteczne shorty na DAX i EUR/USD.\n• Potrzeba większej elastyczności pod koniec tygodnia.",
+    )
+
+    assert "## 📊 Tygodniowy Raport Skuteczności AI • we.trade (Tydzień `2026-W39`)" in msg
+    assert "### 📋 4. Przegląd Dni Minionego Tygodnia" in msg
+    # Verify days are grouped and not individual session bullets
+    assert "Poniedziałek (21.09)" in msg
+    assert "Środa (23.09)" in msg
+    assert "Piątek (25.09)" in msg
+    # Verify scoring format with session breakdown
+    assert "Scoring: `89/100` *(Londyn: 88 | NY: 90)*" in msg
+    # Verify Podsumowanie and Wnioski sub-bullets
+    assert "• **Podsumowanie:**" in msg
+    assert "• **Wnioski:**" in msg
+    assert "Perfekcyjna realizacja pozycji krótkiej na EUR/USD" in msg
+    # Verify section 5 conclusions
+    assert "### 💡 5. Kluczowe Wnioski i Lekcje Tygodnia" in msg
+    assert "Skuteczne shorty na DAX i EUR/USD" in msg
+
+
 def test_clean_markdown_text():
     """Verify that clean_markdown_text completely strips >, ---, and empty quote lines."""
     from newsbox.utils.embeds import clean_markdown_text

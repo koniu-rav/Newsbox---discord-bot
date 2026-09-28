@@ -273,20 +273,28 @@ class BriefingsCog(commands.Cog, name="Briefings & Trader Advisory"):
                 await self.evaluate_session_quietly(s_key)
 
             multi_tier_stats = self.accuracy_service.get_multi_tier_stats()
-            evals = self.accuracy_service._data.get("evaluations", [])
+            target_week, week_evals = self.accuracy_service.get_latest_week_evaluations()
 
-            # Current or latest week evals
-            current_week = multi_tier_stats.get("weekly", {}).get("week_number")
-            week_evals = [e for e in evals if e.get("week_number") == current_week]
-            if not week_evals and evals:
-                week_evals = evals[-7:]
+            # 2. Synthesize daily digests and weekly takeaways with Gemini
+            daily_digests = None
+            weekly_conclusions = None
+            if week_evals and hasattr(self, "gemini_service") and self.gemini_service:
+                try:
+                    digest_res = await self.gemini_service.generate_weekly_accuracy_daily_digest(week_evals)
+                    if digest_res:
+                        daily_digests = digest_res.get("days")
+                        weekly_conclusions = digest_res.get("weekly_conclusions")
+                except Exception as ex:
+                    logger.warning("Gemini weekly digest synthesis failed: %s. Using local fallback.", ex)
 
             msg_text = format_weekly_accuracy_message(
                 stats=multi_tier_stats,
                 week_evaluations=week_evals,
+                conclusions=weekly_conclusions,
+                daily_digests=daily_digests,
             )
             await send_full_message(channel, msg_text)
-            logger.info("Successfully dispatched Weekly Accuracy Report to %s", channel)
+            logger.info("Successfully dispatched Weekly Accuracy Report to %s (Week %s, %d evaluations)", channel, target_week, len(week_evals))
         except Exception as e:
             logger.error("Failed to compile weekly accuracy report: %s", e, exc_info=True)
             await send_full_message(

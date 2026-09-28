@@ -117,3 +117,22 @@ def test_create_multi_tier_accuracy_embed():
     assert "Londyn" in embed.fields[2].value
     assert "85/100" in embed.fields[3].value
     assert "Słaby dolar" in embed.fields[4].value
+
+
+def test_get_latest_week_evaluations(tmp_path):
+    """Test that all trading sessions of the week (Mon-Fri) are preserved without truncation."""
+    history_file = tmp_path / "test_week_history.json"
+    service = AccuracyService(history_file=history_file)
+
+    dates = ["2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25"]
+    for d in dates:
+        service.record_session_evaluation("london", d, score=80, breakdown="London call", conclusions="Good")
+        service.record_session_evaluation("newyork", d, score=85, breakdown="NY call", conclusions="Good")
+
+    # Total 10 evaluations recorded across 5 days
+    week_label, week_evals = service.get_latest_week_evaluations()
+    assert week_label == "2026-W39"
+    # Verify that all 10 evaluations are returned (not truncated to 7)
+    assert len(week_evals) == 10
+    unique_dates = {e["date"] for e in week_evals}
+    assert unique_dates == set(dates)

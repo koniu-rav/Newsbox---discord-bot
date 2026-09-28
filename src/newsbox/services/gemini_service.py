@@ -642,6 +642,74 @@ class GeminiService:
             end_prices=current_prices,
         )
 
+    async def generate_weekly_accuracy_daily_digest(
+        self,
+        week_evaluations: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Synthesize daily summaries and conclusions for each day of the week from session evaluations using Gemini."""
+        if not self._client or not week_evaluations:
+            return {}
+
+        # Group evaluations by date
+        days_map: Dict[str, List[Dict[str, Any]]] = {}
+        for e in week_evaluations:
+            d = e.get("date")
+            if d:
+                days_map.setdefault(d, []).append(e)
+
+        if not days_map:
+            return {}
+
+        daily_blocks = []
+        for d_str in sorted(days_map.keys()):
+            evals = days_map[d_str]
+            session_lines = []
+            for ev in evals:
+                s_name = {"london": "Londyn", "newyork": "Nowy Jork", "asia": "Azja"}.get(ev.get("session", ""), ev.get("session", ""))
+                sc = ev.get("score", 0)
+                br = ev.get("breakdown", "").strip()[:300]
+                cn = ev.get("conclusions", "").strip()[:200]
+                session_lines.append(f"- Sesja {s_name} (Score: {sc}/100):\n  Breakdown: {br}\n  Conclusions: {cn}")
+            daily_blocks.append(f"Date: {d_str}\n" + "\n".join(session_lines))
+
+        daily_data_str = "\n\n".join(daily_blocks)
+
+        template = self.get_prompt_template(
+            "weekly_accuracy_digest",
+            default=(
+                "Synthesize weekly trading accuracy evaluations into ultra-concise daily summaries and conclusions in Polish JSON.\n"
+                "Data:\n{daily_data_str}\n"
+                "Format: JSON with 'days' (dict keyed by YYYY-MM-DD containing 'summary' and 'conclusions') and 'weekly_conclusions'."
+            ),
+        )
+
+        try:
+            prompt = template.format(daily_data_str=daily_data_str)
+        except Exception:
+            prompt = template.replace("{daily_data_str}", daily_data_str)
+
+        raw_response = await self._call_gemini(prompt, fallback_msg="")
+        if not raw_response:
+            return {}
+
+        try:
+            clean_json = raw_response
+            if "```json" in clean_json:
+                clean_json = clean_json.split("```json", 1)[1].split("```", 1)[0].strip()
+            elif "```" in clean_json:
+                clean_json = clean_json.split("```", 1)[1].split("```", 1)[0].strip()
+
+            parsed = json.loads(clean_json)
+            if isinstance(parsed, dict):
+                return {
+                    "days": parsed.get("days", {}),
+                    "weekly_conclusions": parsed.get("weekly_conclusions", ""),
+                }
+        except Exception as ex:
+            logger.warning("Failed to parse weekly accuracy digest JSON: %s", ex)
+
+        return {}
+
     async def _call_gemini(self, prompt: str, fallback_msg: str) -> str:
         """Async execution of Gemini text generation with multi-model fallback resilience."""
         candidates = [self.model_name]

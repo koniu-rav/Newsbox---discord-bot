@@ -1048,8 +1048,11 @@ def format_weekly_accuracy_message(
     stats: Dict[str, Any],
     week_evaluations: List[Dict[str, Any]],
     conclusions: Optional[str] = None,
+    daily_digests: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> str:
-    """Format Saturday Comprehensive Weekly Accuracy Report as a clean full-width Discord markdown message."""
+    """Format Saturday Comprehensive Weekly Accuracy Report as a clean full-width Discord markdown message.
+    Groups evaluations by day (Mon-Fri) with day scoring, concise summary, and key takeaways.
+    """
     global_st = stats.get("global", {})
     sessions_st = stats.get("sessions", {})
     weekly_st = stats.get("weekly", {})
@@ -1082,21 +1085,114 @@ def format_weekly_accuracy_message(
         ),
     ]
 
+    polish_weekdays = {
+        0: "Poniedziałek",
+        1: "Wtorek",
+        2: "Środa",
+        3: "Czwartek",
+        4: "Piątek",
+        5: "Sobota",
+        6: "Niedziela",
+    }
+
     if week_evaluations:
-        eval_lines = []
-        for e in week_evaluations[-7:]:
-            s_name = {"london": "🇬🇧 Londyn", "newyork": "🇺🇸 NY", "asia": "🇯🇵 Azja"}.get(e.get("session", ""), e.get("session", "").upper())
-            score = e.get("score", 0)
-            badge = "🎯" if score > 75 else ("⚖️" if score > 25 else "❌")
-            date_str = e.get("date", "")
-            raw_breakdown = clean_markdown_text(e.get("breakdown", "")).split("\n")[0] if e.get("breakdown") else "Zrealizowano"
-            eval_lines.append(f"• `{date_str}` **{s_name}**: {badge} `{score}/100` — {raw_breakdown}")
-        parts.append("### 📋 4. Przegląd Sesji Minionego Tygodnia\n" + "\n".join(eval_lines))
+        days_map: Dict[str, List[Dict[str, Any]]] = {}
+        for e in week_evaluations:
+            d = e.get("date", "")
+            if d:
+                days_map.setdefault(d, []).append(e)
+
+        daily_lines = []
+        for d_str in sorted(days_map.keys()):
+            day_evals = days_map[d_str]
+            scores = [e.get("score", 0) for e in day_evals]
+            avg_score = round(sum(scores) / len(scores)) if scores else 0
+            badge = "🎯" if avg_score > 75 else ("⚖️" if avg_score > 25 else "❌")
+
+            try:
+                dt = datetime.strptime(d_str, "%Y-%m-%d")
+                w_name = polish_weekdays.get(dt.weekday(), dt.strftime("%A"))
+                day_label = f"{w_name} ({dt.strftime('%d.%m')})"
+            except Exception:
+                day_label = d_str
+
+            session_parts = []
+            for e in day_evals:
+                s = e.get("session", "")
+                s_title = {"london": "Londyn", "newyork": "NY", "asia": "Azja"}.get(s, s.capitalize())
+                session_parts.append(f"{s_title}: {e.get('score', 0)}")
+            session_str = f" *({ ' | '.join(session_parts) })*" if session_parts else ""
+
+            digest_item = (daily_digests or {}).get(d_str, {})
+            day_summary = digest_item.get("summary")
+            day_conclusions = digest_item.get("conclusions")
+
+            if not day_summary:
+                clean_snippets = []
+                for e in day_evals:
+                    b = clean_markdown_text(e.get("breakdown", "")).strip()
+                    if b:
+                        first_s = re.split(r'(?<=[.!?])\s+', b)[0].strip()
+                        first_s = re.sub(r'^(?:\d+[\.\)]|\•|\-|\*)\s*', '', first_s).strip()
+                        if first_s and first_s not in clean_snippets:
+                            clean_snippets.append(first_s)
+                combined = ""
+                for s in clean_snippets:
+                    if not combined:
+                        combined = s
+                    elif len(combined) + len(s) + 1 <= 240:
+                        combined += " " + s
+                    else:
+                        break
+                day_summary = combined or "Zgodność z założonym kierunkiem sesji."
+                if not day_summary.endswith("."):
+                    day_summary += "."
+
+            if not day_conclusions:
+                clean_conclusions = []
+                for e in day_evals:
+                    c = clean_markdown_text(e.get("conclusions", "")).strip()
+                    if c:
+                        first_s = re.split(r'(?<=[.!?])\s+', c)[0].strip()
+                        first_s = re.sub(r'^(?:\d+[\.\)]|\•|\-|\*)\s*', '', first_s).strip()
+                        if first_s and first_s not in clean_conclusions:
+                            clean_conclusions.append(first_s)
+                combined_c = ""
+                for s in clean_conclusions:
+                    if not combined_c:
+                        combined_c = s
+                    elif len(combined_c) + len(s) + 1 <= 180:
+                        combined_c += " " + s
+                    else:
+                        break
+                day_conclusions = combined_c or "Dyscyplina i zarządzanie ryzykiem zrealizowane poprawnie."
+                if not day_conclusions.endswith("."):
+                    day_conclusions += "."
+
+            day_block = (
+                f"• {badge} **{day_label}** — Scoring: `{avg_score}/100`{session_str}\n"
+                f"  • **Podsumowanie:** {day_summary}\n"
+                f"  • **Wnioski:** {day_conclusions}"
+            )
+            daily_lines.append(day_block)
+
+        parts.append("### 📋 4. Przegląd Dni Minionego Tygodnia\n" + "\n\n".join(daily_lines))
+    else:
+        parts.append("### 📋 4. Przegląd Dni Minionego Tygodnia\n*Brak zarejestrowanych ewaluacji dla bieżącego tygodnia.*")
 
     if conclusions:
-        parts.append(f"### 💡 Kluczowe Wnioski i Lekcje Tygodnia\n{clean_markdown_text(conclusions)}")
-    elif week_evaluations and week_evaluations[-1].get("conclusions"):
-        parts.append(f"### 💡 Kluczowe Wnioski i Lekcje Tygodnia\n{clean_markdown_text(week_evaluations[-1].get('conclusions', ''))}")
+        parts.append(f"### 💡 5. Kluczowe Wnioski i Lekcje Tygodnia\n{clean_markdown_text(conclusions)}")
+    elif week_evaluations:
+        all_conc = []
+        for e in week_evaluations:
+            c = clean_markdown_text(e.get("conclusions", "")).strip()
+            if c:
+                first_s = re.split(r'(?<=[.!?])\s+', c)[0].strip()
+                first_s = re.sub(r'^(?:\d+[\.\)]|\•|\-|\*)\s*', '', first_s).strip()
+                if first_s and first_s not in all_conc:
+                    all_conc.append(first_s)
+        if all_conc:
+            parts.append("### 💡 5. Kluczowe Wnioski i Lekcje Tygodnia\n" + "\n".join([f"• {c}" for c in all_conc[:3]]))
 
     parts.append(f"-# {BRAND_FOOTER}")
     return "\n\n".join(parts)

@@ -230,8 +230,9 @@ async def test_calendar_service_fetch_live_published_macro_events():
             pass
 
     service = CalendarService()
+    check_time = datetime.strptime(f"{today_str} 15:00", "%Y-%m-%d %H:%M").replace(tzinfo=WARSAW_TZ)
     with patch("aiohttp.ClientSession", return_value=MockSession()):
-        events = await service.fetch_live_published_macro_events()
+        events = await service.fetch_live_published_macro_events(check_time=check_time)
         # Event 101 (NFP) is published and 🔴 High impact -> included
         # Event 102 (Unemployment) has empty actual -> excluded
         # Event 103 (German Factory Orders) is excluded (unwanted noise)

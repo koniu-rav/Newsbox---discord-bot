@@ -36,6 +36,19 @@ def categorize_score(score: float | int) -> str:
     return "udana"
 
 
+def get_iso_week(dt_or_str: datetime | str) -> str:
+    """Return ISO-8601 week key (Monday is day 1) e.g. '2026-W39'."""
+    if isinstance(dt_or_str, str):
+        try:
+            dt = datetime.strptime(dt_or_str[:10], "%Y-%m-%d")
+        except Exception:
+            dt = datetime.now(WARSAW_TZ)
+    else:
+        dt = dt_or_str
+    iso_year, iso_week, _ = dt.isocalendar()
+    return f"{iso_year}-W{iso_week:02d}"
+
+
 def get_status_badge(status: str) -> str:
     """Get emoji badge for status."""
     st = status.lower()
@@ -76,7 +89,7 @@ class AccuracyService:
                 "asia": dict(empty_counter),
             },
             "weekly": {
-                "week_number": datetime.now(WARSAW_TZ).strftime("%Y-W%U"),
+                "week_number": get_iso_week(datetime.now(WARSAW_TZ)),
                 **empty_counter,
             },
             "daily": {
@@ -146,7 +159,7 @@ class AccuracyService:
                     "asia": {"total": 0, "successful": 0, "neutral": 0, "failed": 0, "average_score": 0.0, "win_rate": 0.0},
                 }
             if "weekly" not in stats:
-                stats["weekly"] = {"week_number": datetime.now(WARSAW_TZ).strftime("%Y-W%U"), **stats["global"]}
+                stats["weekly"] = {"week_number": get_iso_week(datetime.now(WARSAW_TZ)), **stats["global"]}
             if "daily" not in stats:
                 stats["daily"] = {"date": datetime.now(WARSAW_TZ).strftime("%Y-%m-%d"), **stats["global"]}
 
@@ -262,9 +275,9 @@ class AccuracyService:
 
         try:
             dt = datetime.strptime(date_str, "%Y-%m-%d")
-            week_number = dt.strftime("%Y-W%U")
+            week_number = get_iso_week(dt)
         except Exception:
-            week_number = datetime.now(WARSAW_TZ).strftime("%Y-W%U")
+            week_number = get_iso_week(datetime.now(WARSAW_TZ))
 
         eval_record = {
             "id": eval_id,
@@ -308,7 +321,7 @@ class AccuracyService:
         """Compute aggregate stats across Global, Weekly, Daily, and Session levels."""
         evals = self._data.get("evaluations", [])
         now = datetime.now(WARSAW_TZ)
-        current_week = now.strftime("%Y-W%U")
+        current_week = get_iso_week(now)
         current_date = now.strftime("%Y-%m-%d")
 
         def _calc_counter(items: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -336,12 +349,12 @@ class AccuracyService:
             s_evals = [e for e in evals if e.get("session", "london") == s]
             sessions_stats[s] = _calc_counter(s_evals)
 
-        # 3. Current Week Stats
-        week_evals = [e for e in evals if e.get("week_number") == current_week]
+        # 3. Current Week Stats (ISO week matching ensures full Mon-Fri inclusion)
+        week_evals = [e for e in evals if get_iso_week(e.get("date", "")) == current_week]
         # If no evals this week yet, take latest week available
         if not week_evals and evals:
-            latest_week = evals[-1].get("week_number", current_week)
-            week_evals = [e for e in evals if e.get("week_number") == latest_week]
+            latest_week = get_iso_week(evals[-1].get("date", current_date))
+            week_evals = [e for e in evals if get_iso_week(e.get("date", "")) == latest_week]
             week_num_label = latest_week
         else:
             week_num_label = current_week
@@ -373,6 +386,26 @@ class AccuracyService:
             # Legacy root keys for backward compatibility
             **global_stats,
         }
+
+    def get_latest_week_evaluations(self) -> Tuple[str, List[Dict[str, Any]]]:
+        """Retrieve all evaluations belonging to the target trading week (Monday to Friday/Sunday).
+        Guarantees that ALL trading days of the week are included without arbitrary truncation.
+        """
+        evals = self._data.get("evaluations", [])
+        if not evals:
+            return get_iso_week(datetime.now(WARSAW_TZ)), []
+
+        now_iso = get_iso_week(datetime.now(WARSAW_TZ))
+        current_week_evals = [e for e in evals if get_iso_week(e.get("date", "")) == now_iso]
+
+        if current_week_evals:
+            return now_iso, current_week_evals
+
+        # Fallback to the week of the most recent evaluation
+        latest_eval = evals[-1]
+        target_iso = get_iso_week(latest_eval.get("date", datetime.now(WARSAW_TZ)))
+        target_evals = [e for e in evals if get_iso_week(e.get("date", "")) == target_iso]
+        return target_iso, target_evals
 
     def get_multi_tier_stats(self) -> Dict[str, Any]:
         """Retrieve aggregated accuracy metrics across all tiers (Global, Weekly, Daily, Sessions)."""
